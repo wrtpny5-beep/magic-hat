@@ -914,6 +914,44 @@ async function saveStudents() {
   } catch(e) { console.warn('학생 데이터 저장 실패:', e); }
 }
 
+function rebuildCountersFromStudents() {
+  // students 배열에서 모든 카운터 재계산
+  const HGCOUNT = {A:2,X:3,I:3,O:3,M:3,K:3,N:3,D:2,S:2};
+
+  // 담임반 인원
+  const hrC = {};
+  students.forEach(s => { if (s.homeroom) hrC[s.homeroom] = (hrC[s.homeroom]||0)+1; });
+
+  // 생활반 카운터
+  Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
+  students.forEach(s => {
+    if (s.homeroom && s.group != null) {
+      const n = HGCOUNT[s.homeroom] || 0;
+      if (!_groupCounters[s.homeroom]) _groupCounters[s.homeroom] = Array(n).fill(0);
+      const g = parseInt(s.group) - 1;
+      if (g >= 0 && g < n) _groupCounters[s.homeroom][g]++;
+    }
+  });
+
+  // 영어 K/S 인원
+  _engCounts = { K: 0, S: 0 };
+  students.forEach(s => {
+    if (s.engKS === 'K') _engCounts.K++;
+    else if (s.engKS === 'S') _engCounts.S++;
+  });
+
+  // 사회문화 조합
+  _socCounter['㉠'] = 0; _socCounter['㉡'] = 0;
+  students.forEach(s => {
+    if (s.inqTime) {
+      if (s.inq1 === '사회문화' && s.inqTime.c1 in _socCounter) _socCounter[s.inqTime.c1]++;
+      if (s.inq2 === '사회문화' && s.inqTime.c2 in _socCounter) _socCounter[s.inqTime.c2]++;
+    }
+  });
+
+  return hrC;
+}
+
 async function loadStudents() {
   try {
     const result = await window.storage.get('students_data', true);
@@ -921,6 +959,7 @@ async function loadStudents() {
       const saved = JSON.parse(result.value);
       if (saved && saved.length > 0) {
         students = saved;
+        rebuildCountersFromStudents();  // 모든 카운터 자동 재계산
         renderTable();
         toast(`📂 저장된 배정 데이터 ${saved.length}명 불러옴`, 'ok');
       }
@@ -1065,8 +1104,8 @@ async function balanceHomerooms() {
     .filter(({ i, calc }) => !students[i].homeroom && calc.hrCandidates.length > 1)
     .map(({ i, calc }) => ({ i, candidates: calc.hrCandidates }));
 
-  // 기존 저장 인원 + 현재 확정 학생 합산
-  const counts = { ...savedHr };
+  // students 배열 전체에서 직접 카운트 (가장 정확)
+  const counts = {};
   students.forEach(s => { if (s.homeroom) counts[s.homeroom] = (counts[s.homeroom] || 0) + 1; });
 
   undecided.forEach(({ i, candidates }) => {
