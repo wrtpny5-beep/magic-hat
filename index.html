@@ -933,11 +933,12 @@ function rebuildCountersFromStudents() {
     }
   });
 
-  // 영어 K/S 인원
+  // 영어 K/S 인원 (engKS 없으면 ks로 추정)
   _engCounts = { K: 0, S: 0 };
   students.forEach(s => {
-    if (s.engKS === 'K') _engCounts.K++;
-    else if (s.engKS === 'S') _engCounts.S++;
+    const ek = s.engKS || (s.eng && s.ks ? s.ks : null);
+    if (ek === 'K') _engCounts.K++;
+    else if (ek === 'S') _engCounts.S++;
   });
 
   // 사회문화 조합
@@ -961,7 +962,8 @@ async function loadStudents() {
         students = saved;
         rebuildCountersFromStudents();  // 모든 카운터 자동 재계산
         renderTable();
-        toast(`📂 저장된 배정 데이터 ${saved.length}명 불러옴`, 'ok');
+        rebuildCountersFromStudents();
+        toast(`📂 ${saved.length}명 로드 | 영어 K:${_engCounts.K} S:${_engCounts.S}`, 'ok');
       }
     }
   } catch(e) { console.warn('학생 데이터 로드 실패:', e); }
@@ -1072,7 +1074,7 @@ async function loadResultCSV(file) {
 
   const total = Object.values(hrCounts).reduce((a,b) => a+b, 0);
   const detail = Object.entries(hrCounts).sort().map(([k,v]) => `${k}:${v}`).join(' ');
-  toast(`✅ ${total}명 인원 로드 완료 (${detail})`, 'ok');
+  toast(`✅ ${total}명 로드 | 영어 K:${_engCounts.K} S:${_engCounts.S}`, 'ok');
 }
 
 async function resetAllCounters() {
@@ -1131,25 +1133,32 @@ async function balanceHomerooms() {
     }
   });
 
-  // ── 6. 영어 K/S 균등배분 (영어 등급 있는 학생만) ──
-  const engCounts = { K: _engCounts.K || 0, S: _engCounts.S || 0 };
+  // ── 6. 영어 K/S 균등배분 (기존 engKS 없는 새 학생에게만) ──
+  // 기존 학생 engKS 카운트에서 시작
+  const engCounts = { K: 0, S: 0 };
   students.forEach(s => {
-    if (!s.eng) return;  // 영어 등급 없으면 담임반 ks 따름
-    // K/S 각각 영어반 배정 가능한지 확인
+    const ek = s.engKS || (s.eng && s.ks ? s.ks : null);
+    if (ek === 'K') engCounts.K++;
+    else if (ek === 'S') engCounts.S++;
+  });
+  // 새 학생(engKS null)에게만 배정
+  students.forEach(s => {
+    if (s.engKS !== null && s.engKS !== undefined) return;
+    if (!s.eng) return;
     const canK = !!getEngClass(s.exam, s.eng, 'K');
     const canS = !!getEngClass(s.exam, s.eng, 'S');
     if (canK && canS) {
-      // 둘 다 가능 → 인원 적은 쪽
       s.engKS = engCounts.K <= engCounts.S ? 'K' : 'S';
     } else if (canK) {
       s.engKS = 'K';
     } else if (canS) {
       s.engKS = 'S';
     } else {
-      s.engKS = s.ks;  // 배정 불가면 담임반 ks
+      s.engKS = s.ks;
     }
     engCounts[s.engKS]++;
   });
+  _engCounts = { ...engCounts };
 
   // ── 7. 최종 카운터 저장 ──
   const finalHr = { ...counts };
@@ -1163,7 +1172,7 @@ async function balanceHomerooms() {
   recalcInqTime();
   renderTable();
   await saveStudents();
-  toast('⚖️ 담임반 균등 배분 완료 · 자동 저장됨', 'ok');
+  toast(`⚖️ 균등배분 완료 | 영어 K:${_engCounts.K} S:${_engCounts.S}`, 'ok');
 }
 
 // ═══════════════════════════════════════════════
@@ -1244,7 +1253,7 @@ function addManual() {
   const inq2         = document.getElementById('inp-inq2').value.trim();
   const nonsul       = document.getElementById('inp-nonsul').value;
   const hankuksa     = document.getElementById('inp-hankuksa').value;
-  students.push({ num: '', name, sid: '', exam, mathtype, math, korean, eng, kortype, mathtype_new, kortype_new, ks: '', inq1, inq2, lnc: '', group: null, nonsul, hankuksa });
+  students.push({ num: '', name, sid: '', exam, mathtype, math, korean, eng, kortype, mathtype_new, kortype_new, ks: '', inq1, inq2, lnc: '', group: null, nonsul, hankuksa, engKS: null });
   document.getElementById('inp-name').value = '';
   document.getElementById('inp-math').value = '';
   document.getElementById('inp-korean').value = '';
@@ -1387,7 +1396,7 @@ function deleteRow(i) {
 }
 
 function addStudentRow() {
-  students.push({ num: '', name: `학생${students.length+1}`, sid: '', exam: '수능', mathtype: '미적분', math: '', korean: '', eng: '', kortype: '언매', ks: '', inq1: '', inq2: '', lnc: '', group: null, nonsul: '', hankuksa: '' });
+  students.push({ num: '', name: `학생${students.length+1}`, sid: '', exam: '수능', mathtype: '미적분', math: '', korean: '', eng: '', kortype: '언매', ks: '', inq1: '', inq2: '', lnc: '', group: null, nonsul: '', engKS: null, hankuksa: '' });
   renderTable();
 }
 
@@ -1711,7 +1720,7 @@ function confirmExcelImport() {
       nonsul:   String(getCell(row, colMap.nonsul)   || '').trim(),
       hankuksa: String(getCell(row, colMap.hankuksa) || '').trim(),
       inqTime:  null, // import 후 별도 계산
-      ks: ''
+      ks: '', engKS: null
     });
   });
 
