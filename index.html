@@ -1049,11 +1049,7 @@ async function resetAllCounters() {
 
 async function balanceHomerooms() {
   // ── 1. 저장된 기존 인원 카운터 로드 ──
-  const { hrCounts: savedHr, grpCounters: savedGrp, socCounter: savedSoc, engCounts: loadedEng } = await loadCounters();
-  // storage에 저장된 값이 있고 현재 메모리가 0이면 storage값 사용, 아니면 현재 메모리 유지
-  if (loadedEng && (loadedEng.K > 0 || loadedEng.S > 0) && _engCounts.K === 0 && _engCounts.S === 0) {
-    _engCounts = { ...loadedEng };
-  }
+  const { hrCounts: savedHr, grpCounters: savedGrp, socCounter: savedSoc } = await loadCounters();
 
   // ── 2. 단일 후보 담임반 확정 ──
   students.forEach(s => {
@@ -1696,8 +1692,33 @@ function confirmExcelImport() {
 // ═══════════════════════════════════════════════
 showPage('assign');
 renderTable();
-// 저장된 학생 데이터 자동 로드
-loadStudents();
+// 시작 시 카운터 + 학생 데이터 로드
+initApp();
+
+async function initApp() {
+  // 카운터 먼저 로드
+  try {
+    const eng = await window.storage.get('eng_counts', true);
+    if (eng && eng.value) {
+      const v = JSON.parse(eng.value);
+      if (v && (v.K > 0 || v.S > 0)) _engCounts = { ...v };
+    }
+    const grp = await window.storage.get('grp_counters', true);
+    if (grp && grp.value) {
+      const v = JSON.parse(grp.value);
+      Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
+      Object.entries(v).forEach(([k, val]) => { _groupCounters[k] = [...val]; });
+    }
+    const soc = await window.storage.get('soc_counter', true);
+    if (soc && soc.value) {
+      const v = JSON.parse(soc.value);
+      _socCounter['㉠'] = v['㉠'] || 0;
+      _socCounter['㉡'] = v['㉡'] || 0;
+    }
+  } catch(e) {}
+  // 학생 데이터 로드
+  await loadStudents();
+}
 </script>
 </body>
 </html>
