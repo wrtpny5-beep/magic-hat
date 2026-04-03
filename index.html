@@ -1049,8 +1049,11 @@ async function resetAllCounters() {
 
 async function balanceHomerooms() {
   // ── 1. 저장된 기존 인원 카운터 로드 ──
-  const { hrCounts: savedHr, grpCounters: savedGrp, socCounter: savedSoc, engCounts: savedEngCounts } = await loadCounters();
-  _engCounts = { ...(savedEngCounts || { K: 0, S: 0 }) };  // 메모리 동기화
+  const { hrCounts: savedHr, grpCounters: savedGrp, socCounter: savedSoc, engCounts: loadedEng } = await loadCounters();
+  // storage에 저장된 값이 있고 현재 메모리가 0이면 storage값 사용, 아니면 현재 메모리 유지
+  if (loadedEng && (loadedEng.K > 0 || loadedEng.S > 0) && _engCounts.K === 0 && _engCounts.S === 0) {
+    _engCounts = { ...loadedEng };
+  }
 
   // ── 2. 단일 후보 담임반 확정 ──
   students.forEach(s => {
