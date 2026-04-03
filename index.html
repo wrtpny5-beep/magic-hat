@@ -604,6 +604,7 @@ const HOMEROOM_GROUP_COUNT = { A:2, X:3, I:3, O:3, M:3, K:3, N:3, D:2, S:2 };
 
 // 생활반 균등 배분 (담임반별 카운터)
 const _groupCounters = {};
+let _engCounts = { K: 0, S: 0 };  // 영어 K/S 인원 전역 카운터
 function assignGroup(homeroom) {
   if (!homeroom || !HOMEROOM_GROUP_COUNT[homeroom]) return null;
   if (!_groupCounters[homeroom]) _groupCounters[homeroom] = Array(HOMEROOM_GROUP_COUNT[homeroom]).fill(0);
@@ -1011,6 +1012,7 @@ async function loadResultCSV(file) {
     });
   }
   await saveCounters(hrCounts, grpCounters, socCounter, engCounts);
+  _engCounts = { ...engCounts };  // 즉시 메모리 반영
 
   // 즉시 메모리 카운터에도 반영 (균등배분 버튼 없이 바로 사용 가능)
   Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
@@ -1048,6 +1050,7 @@ async function resetAllCounters() {
 async function balanceHomerooms() {
   // ── 1. 저장된 기존 인원 카운터 로드 ──
   const { hrCounts: savedHr, grpCounters: savedGrp, socCounter: savedSoc, engCounts: savedEngCounts } = await loadCounters();
+  _engCounts = { ...(savedEngCounts || { K: 0, S: 0 }) };  // 메모리 동기화
 
   // ── 2. 단일 후보 담임반 확정 ──
   students.forEach(s => {
@@ -1091,7 +1094,7 @@ async function balanceHomerooms() {
   });
 
   // ── 6. 영어 K/S 균등배분 (영어 등급 있는 학생만) ──
-  const engCounts = { K: savedEngCounts.K || 0, S: savedEngCounts.S || 0 };
+  const engCounts = { K: _engCounts.K || 0, S: _engCounts.S || 0 };
   students.forEach(s => {
     if (!s.eng) return;  // 영어 등급 없으면 담임반 ks 따름
     // K/S 각각 영어반 배정 가능한지 확인
@@ -1112,6 +1115,7 @@ async function balanceHomerooms() {
 
   // ── 7. 최종 카운터 저장 ──
   const finalHr = { ...counts };
+  _engCounts = { ...engCounts };
   await saveCounters(finalHr, { ..._groupCounters }, { ..._socCounter }, engCounts);
 
   // ── 7. 학번 자동채우기 ──
