@@ -893,10 +893,12 @@ function calcStudent(s) {
 
   const conflictMsg = conflictMsgs.length > 0 ? conflictMsgs.join(' / ') : null;
 
-  const engClass  = getEngClass(s.exam, s.eng, ks);
+  // engKS는 balanceHomerooms에서 인원 균등배분으로 결정 (s.engKS 사용)
+  const engKS    = s.engKS || ks;  // 미결정이면 담임반 ks 임시 사용
+  const engClass = getEngClass(s.exam, s.eng, engKS);
   // 논술 = 수학(ks) 세트, 한국사 = 영어(ks) 세트
   const nonsulGroup   = s.nonsul   ? ks + '논술'   : null;
-  const hankuksaGroup = s.hankuksa ? ks + '한국사' : null;
+  const hankuksaGroup = s.hankuksa ? engKS + '한국사' : null;
   const inqTime   = s.inqTime || getInquiryTime(s.inq1, s.inq2); // 저장된 값 우선
   const lnc       = s.homeroom ? (HOMEROOM_LNC[s.homeroom] || '') : '';
   return { ...s, cvMath, cvKor, ks, mathBr, mathABr: mathABrFinal, mathBBr, korABr: korABrFinal, korBBr: korBBrFinal, korBr, hrCandidates, homeroom, engClass, nonsulGroup, hankuksaGroup, inqTime, lnc, conflictMsg, _mathtype: mathtype, _kortype: kortype };
@@ -934,11 +936,12 @@ async function clearStudents() {
   } catch(e) { toast('초기화 실패', 'err'); }
 }
 
-async function saveCounters(hrCounts, grpCounters, socCounter) {
+async function saveCounters(hrCounts, grpCounters, socCounter, engCounts) {
   try {
-    await window.storage.set('hr_counts',  JSON.stringify(hrCounts),   true);
+    await window.storage.set('hr_counts',    JSON.stringify(hrCounts),   true);
     await window.storage.set('grp_counters', JSON.stringify(grpCounters), true);
-    await window.storage.set('soc_counter', JSON.stringify(socCounter),  true);
+    await window.storage.set('soc_counter',  JSON.stringify(socCounter),  true);
+    await window.storage.set('eng_counts',   JSON.stringify(engCounts||{K:0,S:0}), true);
   } catch(e) { console.warn('저장 실패:', e); }
 }
 
@@ -947,12 +950,14 @@ async function loadCounters() {
     const hr  = await window.storage.get('hr_counts',    true);
     const grp = await window.storage.get('grp_counters', true);
     const soc = await window.storage.get('soc_counter',  true);
+    const eng = await window.storage.get('eng_counts',   true);
     return {
       hrCounts:    hr  ? JSON.parse(hr.value)  : {},
       grpCounters: grp ? JSON.parse(grp.value) : {},
       socCounter:  soc ? JSON.parse(soc.value) : { '㉠': 0, '㉡': 0 },
+      engCounts:   eng ? JSON.parse(eng.value) : { K: 0, S: 0 },
     };
-  } catch(e) { return { hrCounts: {}, grpCounters: {}, socCounter: { '㉠': 0, '㉡': 0 } }; }
+  } catch(e) { return { hrCounts: {}, grpCounters: {}, socCounter: { '㉠': 0, '㉡': 0 }, engCounts: { K: 0, S: 0 } }; }
 }
 
 // 배정결과 CSV로 카운터 초기화
@@ -995,7 +1000,17 @@ async function loadResultCSV(file) {
       socCounter[row[t2cIdx]]++;
   });
 
-  await saveCounters(hrCounts, grpCounters, socCounter);
+  // 영어 K/S 인원 카운트
+  const engGrpIdx = header.indexOf('영어그룹');
+  const engCounts = { K: 0, S: 0 };
+  if (engGrpIdx >= 0) {
+    lines.slice(1).forEach(row => {
+      const g = row[engGrpIdx] || '';
+      if (g.startsWith('K')) engCounts.K++;
+      else if (g.startsWith('S')) engCounts.S++;
+    });
+  }
+  await saveCounters(hrCounts, grpCounters, socCounter, engCounts);
 
   // 즉시 메모리 카운터에도 반영 (균등배분 버튼 없이 바로 사용 가능)
   Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
@@ -1032,7 +1047,7 @@ async function resetAllCounters() {
 
 async function balanceHomerooms() {
   // ── 1. 저장된 기존 인원 카운터 로드 ──
-  const { hrCounts: savedHr, grpCounters: savedGrp, socCounter: savedSoc } = await loadCounters();
+  const { hrCounts: savedHr, grpCounters: savedGrp, socCounter: savedSoc, engCounts: savedEngCounts } = await loadCounters();
 
   // ── 2. 단일 후보 담임반 확정 ──
   students.forEach(s => {
@@ -1075,9 +1090,29 @@ async function balanceHomerooms() {
     }
   });
 
-  // ── 6. 최종 카운터 저장 ──
+  // ── 6. 영어 K/S 균등배분 (영어 등급 있는 학생만) ──
+  const engCounts = { K: savedEngCounts.K || 0, S: savedEngCounts.S || 0 };
+  students.forEach(s => {
+    if (!s.eng) return;  // 영어 등급 없으면 담임반 ks 따름
+    // K/S 각각 영어반 배정 가능한지 확인
+    const canK = !!getEngClass(s.exam, s.eng, 'K');
+    const canS = !!getEngClass(s.exam, s.eng, 'S');
+    if (canK && canS) {
+      // 둘 다 가능 → 인원 적은 쪽
+      s.engKS = engCounts.K <= engCounts.S ? 'K' : 'S';
+    } else if (canK) {
+      s.engKS = 'K';
+    } else if (canS) {
+      s.engKS = 'S';
+    } else {
+      s.engKS = s.ks;  // 배정 불가면 담임반 ks
+    }
+    engCounts[s.engKS]++;
+  });
+
+  // ── 7. 최종 카운터 저장 ──
   const finalHr = { ...counts };
-  await saveCounters(finalHr, { ..._groupCounters }, { ..._socCounter });
+  await saveCounters(finalHr, { ..._groupCounters }, { ..._socCounter }, engCounts);
 
   // ── 7. 학번 자동채우기 ──
   const sidInput = document.getElementById('inp-start-sid');
