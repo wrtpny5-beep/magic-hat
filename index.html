@@ -555,14 +555,15 @@ let BRACKETS = {
     { from:  7, to: 53, label: '㉡' },
   ],
 
-  // ── 국어S 언매 ──
+  // ── 국어S 언매: 독서/문학과 동일 구간 ──
   '국어S언매K': [
-    { from: 50, to: 99, label: '㉠' },
-    { from:  8, to: 49, label: '㉡' },
+    { from: 80, to: 98, label: '㉠' },
+    { from: 61, to: 80, label: '㉡' },
+    { from:  8, to: 62, label: '㉢' },
   ],
   '국어S언매S': [
-    { from: 50, to: 99, label: '㉠' },
-    { from:  8, to: 49, label: '㉡' },
+    { from: 54, to: 79, label: '㉠' },
+    { from:  7, to: 53, label: '㉡' },
   ],
 
   // ── 국어S 화작 ──
@@ -573,7 +574,6 @@ let BRACKETS = {
   ],
   '국어S화작S': [
     { from: 50, to: 81, label: '●'  },
-    // 50 미만은 K㉡으로 → null 반환 후 로직에서 처리
   ],
 };
 
