@@ -1133,20 +1133,35 @@ async function balanceHomerooms() {
     }
   });
 
-  // ── 6. 영어 K/S 균등배분 (기존 engKS 없는 새 학생에게만) ──
-  // 기존 학생 engKS 카운트에서 시작
+  // ── 6. 영어 K/S 균등배분 ──
+  // Step1: 아직 engKS 미확정 학생 → ks로 임시 초기화 (기존 데이터 마이그레이션)
+  students.forEach(s => {
+    if (s.engKS !== 'K' && s.engKS !== 'S') {
+      s.engKS = s.ks || 'K';  // ks 기반으로 임시 설정
+    }
+  });
+  // Step2: 새로 추가된 학생(engKS가 null이었던 것)만 재배정
+  // → 이미 배정된 학생 카운트
   const engCounts = { K: 0, S: 0 };
   students.forEach(s => {
-    const ek = s.engKS || (s.eng && s.ks ? s.ks : null);
-    if (ek === 'K') engCounts.K++;
-    else if (ek === 'S') engCounts.S++;
+    if (s._engAssigned) { // 이미 확정 배정된 학생
+      if (s.engKS === 'K') engCounts.K++;
+      else if (s.engKS === 'S') engCounts.S++;
+    } else {
+      // 확정 안 된 학생은 ks로 카운트
+      if (s.ks === 'K') engCounts.K++;
+      else if (s.ks === 'S') engCounts.S++;
+    }
   });
-  // 새 학생(engKS null)에게만 배정
+  // Step3: 새 학생(_engAssigned 없는 학생)에게만 균등배분
   students.forEach(s => {
-    if (s.engKS !== null && s.engKS !== undefined) return;
-    if (!s.eng) return;
+    if (s._engAssigned) return;
+    if (!s.eng) { s._engAssigned = true; return; }
     const canK = !!getEngClass(s.exam, s.eng, 'K');
     const canS = !!getEngClass(s.exam, s.eng, 'S');
+    // 현재 이 학생이 임시로 잡은 ks 카운트 제거
+    if (s.engKS === 'K') engCounts.K--;
+    else if (s.engKS === 'S') engCounts.S--;
     if (canK && canS) {
       s.engKS = engCounts.K <= engCounts.S ? 'K' : 'S';
     } else if (canK) {
@@ -1154,8 +1169,9 @@ async function balanceHomerooms() {
     } else if (canS) {
       s.engKS = 'S';
     } else {
-      s.engKS = s.ks;
+      s.engKS = s.ks || 'K';
     }
+    s._engAssigned = true;
     engCounts[s.engKS]++;
   });
   _engCounts = { ...engCounts };
