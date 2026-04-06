@@ -182,6 +182,32 @@ table.dt{width:100%;border-collapse:collapse;font-size:12px}
 @media(max-width:900px){.app{grid-template-columns:1fr}.sb{height:auto;max-height:70vh;overflow-y:auto}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDkGCCsud9Y9WbOsy5j9Q6CiI5OSRfnqPM",
+  authDomain: "magic-hat-9f564.firebaseapp.com",
+  databaseURL: "https://magic-hat-9f564-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "magic-hat-9f564",
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+window._fbSet = async (key, value) => {
+  await set(ref(db, 'magical-hat/' + key), value);
+};
+window._fbGet = async (key) => {
+  const snap = await get(ref(db, 'magical-hat/' + key));
+  return snap.exists() ? snap.val() : null;
+};
+window._fbDel = async (key) => {
+  await remove(ref(db, 'magical-hat/' + key));
+};
+window._fbReady = true;
+window.dispatchEvent(new Event('fbReady'));
+</script>
 </head>
 <body>
 
@@ -892,9 +918,37 @@ function calcStudent(s) {
 // 전체 학생 중 담임반 미지정(복수 후보) 학생들을 균등 배분
 // ── 공유 카운터 저장/로드 (window.storage) ──
 // ── 전체 학생 데이터 저장/로드 ──
+// ── storage 헬퍼: Firebase Realtime DB 우선, localStorage fallback ──
+async function storageSet(key, value, shared) {
+  try {
+    if (window._fbReady) { await window._fbSet(key, value); return; }
+  } catch(e) { console.warn('FB set 실패:', e); }
+  try { localStorage.setItem(key, value); } catch(e) {}
+}
+async function storageGet(key, shared) {
+  try {
+    if (window._fbReady) { return await window._fbGet(key); }
+  } catch(e) { console.warn('FB get 실패:', e); }
+  try { return localStorage.getItem(key); } catch(e) {}
+  return null;
+}
+async function storageDelete(key, shared) {
+  try { if (window._fbReady) { await window._fbDel(key); return; } } catch(e) {}
+  try { localStorage.removeItem(key); } catch(e) {}
+}
+
+// Firebase 준비될 때까지 대기 후 앱 초기화
+function waitForFirebase() {
+  return new Promise(resolve => {
+    if (window._fbReady) return resolve();
+    window.addEventListener('fbReady', resolve, { once: true });
+    setTimeout(resolve, 3000); // 3초 타임아웃
+  });
+}
+
 async function saveStudents() {
   try {
-    await window.storage.set('students_data', JSON.stringify(students), true);
+    await storageSet('students_data', JSON.stringify(students), true);
   } catch(e) { console.warn('학생 데이터 저장 실패:', e); }
 }
 
@@ -939,7 +993,8 @@ function rebuildCountersFromStudents() {
 
 async function loadStudents() {
   try {
-    const result = await window.storage.get('students_data', true);
+    const val = await storageGet('students_data', true);
+    const result = val ? { value: val } : null;
     if (result && result.value) {
       const saved = JSON.parse(result.value);
       if (saved && saved.length > 0) {
@@ -966,7 +1021,7 @@ async function loadStudents() {
 
 async function clearStudents() {
   try {
-    await window.storage.delete('students_data', true);
+    await storageDelete('students_data', true);
     students = [];
     renderTable();
     toast('🗑️ 배정 데이터 초기화 완료', 'ok');
@@ -975,24 +1030,24 @@ async function clearStudents() {
 
 async function saveCounters(hrCounts, grpCounters, socCounter, engCounts) {
   try {
-    await window.storage.set('hr_counts',    JSON.stringify(hrCounts),   true);
-    await window.storage.set('grp_counters', JSON.stringify(grpCounters), true);
-    await window.storage.set('soc_counter',  JSON.stringify(socCounter),  true);
-    await window.storage.set('eng_counts',   JSON.stringify(engCounts||{K:0,S:0}), true);
+    await storageSet('hr_counts',    JSON.stringify(hrCounts),   true);
+    await storageSet('grp_counters', JSON.stringify(grpCounters), true);
+    await storageSet('soc_counter',  JSON.stringify(socCounter),  true);
+    await storageSet('eng_counts',   JSON.stringify(engCounts||{K:0,S:0}), true);
   } catch(e) { console.warn('저장 실패:', e); }
 }
 
 async function loadCounters() {
   try {
-    const hr  = await window.storage.get('hr_counts',    true);
-    const grp = await window.storage.get('grp_counters', true);
-    const soc = await window.storage.get('soc_counter',  true);
-    const eng = await window.storage.get('eng_counts',   true);
+    const hr  = await storageGet('hr_counts',    true);
+    const grp = await storageGet('grp_counters', true);
+    const soc = await storageGet('soc_counter',  true);
+    const eng = await storageGet('eng_counts',   true);
     return {
-      hrCounts:    hr  ? JSON.parse(hr.value)  : {},
-      grpCounters: grp ? JSON.parse(grp.value) : {},
-      socCounter:  soc ? JSON.parse(soc.value) : { '㉠': 0, '㉡': 0 },
-      engCounts:   eng ? JSON.parse(eng.value) : { K: 0, S: 0 },
+      hrCounts:    hr  ? JSON.parse(hr)  : {},
+      grpCounters: grp ? JSON.parse(grp) : {},
+      socCounter:  soc ? JSON.parse(soc) : { '㉠': 0, '㉡': 0 },
+      engCounts:   eng ? JSON.parse(eng) : { K: 0, S: 0 },
     };
   } catch(e) { return { hrCounts: {}, grpCounters: {}, socCounter: { '㉠': 0, '㉡': 0 }, engCounts: { K: 0, S: 0 } }; }
 }
@@ -1037,18 +1092,7 @@ async function loadResultCSV(file) {
       socCounter[row[t2cIdx]]++;
   });
 
-  // 영어 K/S 인원 카운트
-  const engGrpIdx = header.indexOf('영어그룹');
-  const engCounts = { K: 0, S: 0 };
-  if (engGrpIdx >= 0) {
-    lines.slice(1).forEach(row => {
-      const g = row[engGrpIdx] || '';
-      if (g.startsWith('K')) engCounts.K++;
-      else if (g.startsWith('S')) engCounts.S++;
-    });
-  }
-  await saveCounters(hrCounts, grpCounters, socCounter, engCounts);
-  _engCounts = { ...engCounts };  // 즉시 메모리 반영
+  await saveCounters(hrCounts, grpCounters, socCounter, {K:0,S:0});
 
   // 즉시 메모리 카운터에도 반영 (균등배분 버튼 없이 바로 사용 가능)
   Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
@@ -1071,16 +1115,16 @@ async function loadResultCSV(file) {
   const detail = Object.entries(hrCounts).sort().map(([k,v]) => `${k}:${v}`).join(' ');
   // 업로드 날짜 저장
   const uploadDate = new Date().toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-  try { await window.storage.set('csv_upload_date', uploadDate, true); } catch(e) {}
+  await storageSet('csv_upload_date', uploadDate, true);
   document.getElementById('csv-upload-date').textContent = `📅 CSV 최종 업데이트: ${uploadDate}`;
   toast(`✅ ${total}명 로드 | 영어 K:${_engCounts.K} S:${_engCounts.S}`, 'ok');
 }
 
 async function resetAllCounters() {
   try {
-    await window.storage.delete('hr_counts',    true);
-    await window.storage.delete('grp_counters', true);
-    await window.storage.delete('soc_counter',  true);
+    await storageDelete('hr_counts', true);
+    await storageDelete('grp_counters', true);
+    await storageDelete('soc_counter', true);
     Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
     _socCounter['㉠'] = 0; _socCounter['㉡'] = 0;
     toast('🗑️ 인원 카운터 초기화 완료', 'ok');
@@ -1133,34 +1177,12 @@ async function balanceHomerooms() {
   });
 
   // ── 6. 영어 K/S 균등배분 ──
-  // Step1: 아직 engKS 미확정 학생 → ks로 임시 초기화 (기존 데이터 마이그레이션)
-  students.forEach(s => {
-    if (s.engKS !== 'K' && s.engKS !== 'S') {
-      s.engKS = s.ks || 'K';  // ks 기반으로 임시 설정
-    }
-  });
-  // Step2: 새로 추가된 학생(engKS가 null이었던 것)만 재배정
-  // → 이미 배정된 학생 카운트
+  // 담임반 K/S 무관, 전체 학생 K영어/S영어 인원 적은 쪽으로 배정
   const engCounts = { K: 0, S: 0 };
   students.forEach(s => {
-    if (s._engAssigned) { // 이미 확정 배정된 학생
-      if (s.engKS === 'K') engCounts.K++;
-      else if (s.engKS === 'S') engCounts.S++;
-    } else {
-      // 확정 안 된 학생은 ks로 카운트
-      if (s.ks === 'K') engCounts.K++;
-      else if (s.ks === 'S') engCounts.S++;
-    }
-  });
-  // Step3: 새 학생(_engAssigned 없는 학생)에게만 균등배분
-  students.forEach(s => {
-    if (s._engAssigned) return;
-    if (!s.eng) { s._engAssigned = true; return; }
+    if (!s.eng) { s.engKS = s.ks || 'K'; return; }
     const canK = !!getEngClass(s.exam, s.eng, 'K');
     const canS = !!getEngClass(s.exam, s.eng, 'S');
-    // 현재 이 학생이 임시로 잡은 ks 카운트 제거
-    if (s.engKS === 'K') engCounts.K--;
-    else if (s.engKS === 'S') engCounts.S--;
     if (canK && canS) {
       s.engKS = engCounts.K <= engCounts.S ? 'K' : 'S';
     } else if (canK) {
@@ -1170,10 +1192,8 @@ async function balanceHomerooms() {
     } else {
       s.engKS = s.ks || 'K';
     }
-    s._engAssigned = true;
     engCounts[s.engKS]++;
   });
-  _engCounts = { ...engCounts };
 
   // ── 7. 최종 카운터 저장 ──
   const finalHr = { ...counts };
@@ -1370,7 +1390,12 @@ function renderTable() {
       <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.korBr==='㉡(K)' ? '㉡' : (s.korBr||'-')}</td>
 
       <td style="font-size:11px">영어</td>
-      <td style="font-size:11px;font-family:var(--mono)">${s.engClass && s.engClass !== '' ? s.ks+'영어' : '-'}</td>
+      <td style="font-size:11px">
+        ${s.eng ? `<div style="display:flex;gap:2px">
+          <button style="padding:2px 6px;border-radius:4px;border:1px solid ${s.engKS==='K'?'var(--acc)':'var(--bd)'};background:${s.engKS==='K'?'rgba(184,134,11,.18)':'none'};color:${s.engKS==='K'?'var(--acc)':'var(--t2)'};font-size:10px;font-weight:700;cursor:pointer;font-family:inherit" onclick="students[${i}].engKS='K';students[${i}]._engAssigned=true;renderTable()">K</button>
+          <button style="padding:2px 6px;border-radius:4px;border:1px solid ${s.engKS==='S'?'var(--acc)':'var(--bd)'};background:${s.engKS==='S'?'rgba(184,134,11,.18)':'none'};color:${s.engKS==='S'?'var(--acc)':'var(--t2)'};font-size:10px;font-weight:700;cursor:pointer;font-family:inherit" onclick="students[${i}].engKS='S';students[${i}]._engAssigned=true;renderTable()">S</button>
+        </div>` : '-'}
+      </td>
       <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.engClass||'-'}</td>
 
       <td style="font-size:11px">${s.nonsul ? (s.nonsul.includes('자습') ? '논술 자습' : '논술') : '-'}</td>
@@ -1761,30 +1786,31 @@ renderTable();
 initApp();
 
 async function initApp() {
+  await waitForFirebase();
   // 카운터 먼저 로드
   try {
-    const eng = await window.storage.get('eng_counts', true);
-    if (eng && eng.value) {
-      const v = JSON.parse(eng.value);
+    const eng = await storageGet('eng_counts', true);
+    if (eng) {
+      const v = JSON.parse(eng);
       if (v && (v.K > 0 || v.S > 0)) _engCounts = { ...v };
     }
-    const grp = await window.storage.get('grp_counters', true);
-    if (grp && grp.value) {
-      const v = JSON.parse(grp.value);
+    const grp = await storageGet('grp_counters', true);
+    if (grp) {
+      const v = JSON.parse(grp);
       Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
       Object.entries(v).forEach(([k, val]) => { _groupCounters[k] = [...val]; });
     }
-    const soc = await window.storage.get('soc_counter', true);
-    if (soc && soc.value) {
-      const v = JSON.parse(soc.value);
+    const soc = await storageGet('soc_counter', true);
+    if (soc) {
+      const v = JSON.parse(soc);
       _socCounter['㉠'] = v['㉠'] || 0;
       _socCounter['㉡'] = v['㉡'] || 0;
     }
   } catch(e) {}
   // CSV 업로드 날짜 불러오기
   try {
-    const d = await window.storage.get('csv_upload_date', true);
-    if (d && d.value) document.getElementById('csv-upload-date').textContent = `CSV 최종 업데이트: ${d.value}`;
+    const d = await storageGet('csv_upload_date', true);
+    if (d) document.getElementById('csv-upload-date').textContent = `CSV 최종 업데이트: ${d}`;
   } catch(e) {}
   // 학생 데이터 로드
   await loadStudents();
