@@ -886,7 +886,7 @@ function calcStudent(s) {
   const hankuksaGroup = s.hankuksa ? engKS + '한국사' : null;
   const inqTime   = s.inqTime || getInquiryTime(s.inq1, s.inq2); // 저장된 값 우선
   const lnc       = s.homeroom ? (HOMEROOM_LNC[s.homeroom] || '') : '';
-  return { ...s, cvMath, cvKor, ks, mathBr, mathABr: mathABrFinal, mathBBr, korABr: korABrFinal, korBBr: korBBrFinal, korBr, hrCandidates, homeroom, engClass, nonsulGroup, hankuksaGroup, inqTime, lnc, conflictMsg, _mathtype: mathtype, _kortype: kortype };
+  return { ...s, cvMath, cvKor, ks, mathBr, mathABr: mathABrFinal, mathBBr, korABr: korABrFinal, korBBr: korBBrFinal, korBr, hrCandidates, homeroom, engKS, engClass, nonsulGroup, hankuksaGroup, inqTime, lnc, conflictMsg, _mathtype: mathtype, _kortype: kortype };
 }
 
 // 전체 학생 중 담임반 미지정(복수 후보) 학생들을 균등 배분
