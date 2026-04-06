@@ -1466,7 +1466,7 @@ function exportCSV() {
       '독서', s.korABr?(s.ks+'국어A'):'', s.korABr||'',
       '문학', s.korBBr?(s.ks+'국어B'):'', s.korBBr||'',
       s._kortype||s.kortype||'', s.korBr?korSGroup:'', korSComb,
-      '영어', (s.engClass&&s.engClass!=='')?(s.ks+'영어'):'', s.engClass||'',
+      '영어', (s.engClass&&s.engClass!=='')?(s.engKS+'영어'):'', s.engClass||'',
       s.nonsul?(s.nonsul.includes('자습')?'논술 자습':'논술'):'', s.nonsulGroup||'', s.nonsul?'●':'',
       s.hankuksa?(s.hankuksa.includes('자습')?'한국사 자습':'한국사'):'', s.hankuksaGroup||'', s.hankuksa?'●':'',
       s.ks||'', s.conflictMsg||'',
