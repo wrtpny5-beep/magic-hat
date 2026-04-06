@@ -211,6 +211,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12px}
         <div style="font-size:11px;color:var(--t2);line-height:1.6">
           이미 배정된 학생이 있다면 결과 CSV를 업로드하면 인원이 자동 반영됩니다.
         </div>
+        <div id="csv-upload-date" style="font-size:10px;color:var(--acc);letter-spacing:0.3px">📅 CSV 업로드 내역 없음</div>
         <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s3);border:1px dashed var(--bd2);border-radius:8px;cursor:pointer;font-size:11px;color:var(--acc2)">
           <span>📥</span>
           <span>기존 배정결과 CSV 불러오기</span>
@@ -1074,6 +1075,10 @@ async function loadResultCSV(file) {
 
   const total = Object.values(hrCounts).reduce((a,b) => a+b, 0);
   const detail = Object.entries(hrCounts).sort().map(([k,v]) => `${k}:${v}`).join(' ');
+  // 업로드 날짜 저장
+  const uploadDate = new Date().toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  try { await window.storage.set('csv_upload_date', uploadDate, true); } catch(e) {}
+  document.getElementById('csv-upload-date').textContent = `📅 CSV 최종 업데이트: ${uploadDate}`;
   toast(`✅ ${total}명 로드 | 영어 K:${_engCounts.K} S:${_engCounts.S}`, 'ok');
 }
 
@@ -1779,6 +1784,11 @@ async function initApp() {
       _socCounter['㉠'] = v['㉠'] || 0;
       _socCounter['㉡'] = v['㉡'] || 0;
     }
+  } catch(e) {}
+  // CSV 업로드 날짜 불러오기
+  try {
+    const d = await window.storage.get('csv_upload_date', true);
+    if (d && d.value) document.getElementById('csv-upload-date').textContent = `📅 CSV 최종 업데이트: ${d.value}`;
   } catch(e) {}
   // 학생 데이터 로드
   await loadStudents();
