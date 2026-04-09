@@ -43,7 +43,7 @@ body{background:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .tab.on{background:rgba(184,134,11,.25);color:#f0d080;border:1px solid rgba(184,134,11,.4)}
 
 /* LAYOUT */
-.app{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 52px)}
+.app{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 52px);min-width:0;overflow:hidden}
 
 /* SIDEBAR */
 .sb{background:var(--s1);border-right:2px solid var(--bd);overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;position:sticky;top:52px;height:calc(100vh - 52px);max-height:calc(100vh - 52px);overflow-y:auto}
@@ -113,7 +113,7 @@ kbd{background:var(--s3);border:1px solid var(--bd2);border-radius:3px;padding:1
 .btn-add-br:hover{border-color:var(--grn);color:var(--grn)}
 
 /* MAIN */
-.main{padding:20px;display:flex;flex-direction:column;gap:16px}
+.main{padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0;overflow-x:hidden}
 .main::-webkit-scrollbar{width:5px}
 .main::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 
@@ -124,7 +124,7 @@ kbd{background:var(--s3);border:1px solid var(--bd2);border-radius:3px;padding:1
 .empty-sub{font-size:12px;color:var(--t3);line-height:1.8}
 
 /* RESULT TABLE */
-.res-card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;overflow:hidden;display:none}
+.res-card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;overflow:hidden;display:none;min-width:0}
 .res-hd{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
 .res-title{font-size:14px;font-weight:700;font-family:var(--title-font);color:var(--acc2)}
 .res-actions{display:flex;gap:6px}
@@ -135,13 +135,13 @@ kbd{background:var(--s3);border:1px solid var(--bd2);border-radius:3px;padding:1
 table.dt{width:100%;border-collapse:collapse;font-size:12px}
 .dt-wrap{overflow-x:auto;position:relative}
 .dt th.sticky,.dt td.sticky{position:sticky;z-index:2;background:var(--s1)}
-.dt th.sticky{background:linear-gradient(135deg,#234389,#003674);z-index:3}
-.dt th{background:linear-gradient(135deg,#234389,#003674);padding:9px 12px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.7px;color:#d4a843;text-transform:uppercase;border-bottom:2px solid var(--acc);white-space:nowrap;font-family:var(--title-font)}
+.dt th.sticky{background:linear-gradient(135deg,#234389,#003674);z-index:4}
+.dt th{position:sticky;top:0;z-index:1;background:linear-gradient(135deg,#234389,#003674);padding:9px 12px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.7px;color:#d4a843;text-transform:uppercase;border-bottom:2px solid var(--acc);white-space:nowrap;font-family:var(--title-font)}
 .dt th:first-child{text-align:left}
 .dt td{padding:9px 12px;border-bottom:1px solid var(--bd);text-align:center;font-family:var(--mono);font-size:12px}
 .dt td:first-child{text-align:left;font-family:'Noto Sans KR',sans-serif;font-weight:500;font-size:13px}
 .dt tr:last-child td{border-bottom:none}
-.dt tbody tr:hover td{background:rgba(184,134,11,.07)}
+.dt tbody tr:hover td{background:rgba(184,134,11,.07)}.dt tbody tr:hover td.sticky{background:color-mix(in srgb, var(--s1) 93%, #c8a96e 7%)}
 .dt td input.editable{background:none;border:none;text-align:center;font-family:var(--mono);font-size:12px;color:var(--txt);width:60px;border-radius:4px;padding:1px 3px}
 .dt td input.editable:focus{background:var(--s3);outline:1px solid var(--acc)}
 .dt td input.name-in{width:80px;font-family:'Noto Sans KR',sans-serif;font-size:12px}
@@ -1351,7 +1351,7 @@ function renderTable() {
 
     tr.innerHTML = `
       <td class="sticky" style="left:0;min-width:80px;max-width:80px"><input class="editable" style="width:74px;font-size:11px" value="${s.sid||''}" onchange="students[${i}].sid=this.value" placeholder="-"></td>
-      <td class="sticky" style="left:80px;min-width:60px;max-width:60px">
+      <td class="sticky" style="left:80px;min-width:60px">
         ${s.hrCandidates && s.hrCandidates.length > 1
           ? `<select style="background:var(--s3);border:1px solid var(--yel);border-radius:5px;color:var(--yel);font-family:inherit;font-size:11px;padding:3px 5px;outline:none;font-weight:700"
                onchange="students[${i}].homeroom=this.value;students[${i}].ks=HOMEROOM_KS[this.value]||'K';students[${i}].lnc=HOMEROOM_LNC[this.value]||'';renderTable()">
