@@ -422,24 +422,24 @@ window.dispatchEvent(new Event('fbReady'));
           <thead>
             <tr>
               <th class="sticky" style="left:0px;min-width:80px;max-width:80px">수험번호</th>
-              <th class="sticky" style="left:80px;min-width:60px;max-width:60px">수학담임반</th>
+              <th class="sticky" style="left:80px;min-width:60px">수학담임반</th>
               <th class="sticky" style="left:140px;min-width:60px;max-width:60px">학번</th>
               <th class="sticky" style="left:200px;min-width:50px;max-width:50px">생활반</th>
               <th class="sticky" style="left:250px;min-width:50px;max-width:50px">L&C</th>
               <th class="sticky" style="left:300px;min-width:80px;max-width:80px;border-right:2px solid var(--acc)">이름</th>
+              <th>국어S과목</th><th>국어S그룹</th><th>국어S조합</th>
               <th>수학S과목</th><th>수학S그룹</th><th>수학S조합</th>
-              <th>수학A과목</th><th>수학A그룹</th><th>수학A조합</th>
-              <th>수학B과목</th><th>수학B그룹</th><th>수학B조합</th>
+              <th>영어과목</th><th>영어그룹</th><th>영어조합</th>
+              <th>탐구1과목</th><th>탐구1그룹</th><th>탐구1조합</th>
+              <th>탐구2과목</th><th>탐구2그룹</th><th>탐구2조합</th>
+              <th>논술과목</th><th>논술그룹</th><th>논술조합</th>
               <th>국어A과목</th><th>국어A그룹</th><th>국어A조합</th>
               <th>국어B과목</th><th>국어B그룹</th><th>국어B조합</th>
-              <th>국어S과목</th><th>국어S그룹</th><th>국어S조합</th>
-              <th>영어과목</th><th>영어그룹</th><th>영어조합</th>
-              <th>논술과목</th><th>논술그룹</th><th>논술조합</th>
+              <th>수학A과목</th><th>수학A그룹</th><th>수학A조합</th>
+              <th>수학B과목</th><th>수학B그룹</th><th>수학B조합</th>
               <th>한국사과목</th><th>한국사그룹</th><th>한국사조합</th>
               <th>K/S 선택</th>
               <th>충돌</th>
-              <th>탐구1과목</th><th>탐구1그룹</th><th>탐구1조합</th>
-              <th>탐구2과목</th><th>탐구2그룹</th><th>탐구2조합</th>
               <th></th>
             </tr>
           </thead>
@@ -1379,45 +1379,36 @@ function renderTable() {
       <td class="sticky" style="left:200px;min-width:50px;max-width:50px">${s.group ? `<span style="font-family:var(--mono);font-weight:700;color:var(--grn)">${s.group}</span>` : '<span style="color:var(--t3)">-</span>'}</td>
       <td class="sticky" style="left:250px;min-width:50px;max-width:50px">${s.lnc ? `<span class="chip chip-${s.ks||'none'}" style="font-size:11px">${s.lnc}</span>` : '<span style="color:var(--t3)">-</span>'}</td>
       <td class="sticky" style="left:300px;min-width:80px;max-width:80px;border-right:2px solid var(--bd2)"><input class="editable name-in" style="width:74px" value="${s.name||''}" onchange="students[${i}].name=this.value"></td>
+      <td style="font-size:11px">${s._kortype||s.kortype||'-'}</td>
+      <td style="font-size:11px;font-family:var(--mono)">${s.korBr ? (s.korBr==='㉡(K)' ? 'K국어S' : s.ks+'국어S') : '-'}</td>
+      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.korBr==='㉡(K)' ? '㉡' : (s.korBr||'-')}</td>
       <td style="font-size:11px">${(s._mathtype||s.mathtype)||'-'}</td>
       <td style="font-size:11px;font-family:var(--mono)">${s.mathBr ? s.ks+'수학S' : '-'}</td>
       <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.mathBr||'-'}</td>
-
-      <td style="font-size:11px">수학Ⅰ</td>
-      <td style="font-size:11px;font-family:var(--mono)">${s.mathABr ? s.ks+'수학A' : '-'}</td>
-      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.mathABr||'-'}</td>
-
-      <td style="font-size:11px">수학Ⅱ</td>
-      <td style="font-size:11px;font-family:var(--mono)">${s.mathBBr ? s.ks+'수학B' : '-'}</td>
-      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.mathBBr||'-'}</td>
-
-      <td style="font-size:11px">독서</td>
-      <td style="font-size:11px;font-family:var(--mono)">${s.korABr ? s.ks+'국어A' : '-'}</td>
-      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.korABr||'-'}</td>
-
-      <td style="font-size:11px">문학</td>
-      <td style="font-size:11px;font-family:var(--mono)">${s.korBBr ? s.ks+'국어B' : '-'}</td>
-      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.korBBr||'-'}</td>
-
-      <td style="font-size:11px">${s._kortype||s.kortype||'-'}</td>
-      <td style="font-size:11px;font-family:var(--mono)">${s.korBr
-        ? (s.korBr==='㉡(K)' ? 'K국어S' : s.ks+'국어S')
-        : '-'}</td>
-      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.korBr==='㉡(K)' ? '㉡' : (s.korBr||'-')}</td>
-
       <td style="font-size:11px">영어</td>
-      <td style="font-size:11px">
-        ${s.eng ? `<div style="display:flex;gap:2px">
-          <button style="padding:2px 6px;border-radius:4px;border:1px solid ${s.engKS==='K'?'var(--acc)':'var(--bd)'};background:${s.engKS==='K'?'rgba(184,134,11,.18)':'none'};color:${s.engKS==='K'?'var(--acc)':'var(--t2)'};font-size:10px;font-weight:700;cursor:pointer;font-family:inherit" onclick="students[${i}].engKS='K';students[${i}]._engAssigned=true;renderTable()">K</button>
-          <button style="padding:2px 6px;border-radius:4px;border:1px solid ${s.engKS==='S'?'var(--acc)':'var(--bd)'};background:${s.engKS==='S'?'rgba(184,134,11,.18)':'none'};color:${s.engKS==='S'?'var(--acc)':'var(--t2)'};font-size:10px;font-weight:700;cursor:pointer;font-family:inherit" onclick="students[${i}].engKS='S';students[${i}]._engAssigned=true;renderTable()">S</button>
-        </div>` : '-'}
-      </td>
+      <td style="font-size:11px;font-family:var(--mono)">${s.engClass && s.engClass !== '' ? s.engKS+'영어' : '-'}</td>
       <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.engClass||'-'}</td>
-
+      <td style="font-size:11px">${s.inq1||'-'}</td>
+      <td style="font-size:11px;font-family:var(--mono)">${s.inqTime&&s.inqTime.t1 ? '탐구'+s.inqTime.t1 : '-'}</td>
+      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.inqTime&&s.inqTime.c1 ? s.inqTime.c1 : '-'}</td>
+      <td style="font-size:11px">${s.inq2||'-'}</td>
+      <td style="font-size:11px;font-family:var(--mono)">${s.inqTime&&s.inqTime.t2 ? '탐구'+s.inqTime.t2 : '-'}</td>
+      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.inqTime&&s.inqTime.c2 ? s.inqTime.c2 : '-'}</td>
       <td style="font-size:11px">${s.nonsul ? (s.nonsul.includes('자습') ? '논술 자습' : '논술') : '-'}</td>
       <td style="font-size:11px;font-family:var(--mono)">${s.nonsulGroup||'-'}</td>
       <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.nonsul ? '●' : '-'}</td>
-
+      <td style="font-size:11px">독서</td>
+      <td style="font-size:11px;font-family:var(--mono)">${s.korABr ? s.ks+'국어A' : '-'}</td>
+      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.korABr||'-'}</td>
+      <td style="font-size:11px">문학</td>
+      <td style="font-size:11px;font-family:var(--mono)">${s.korBBr ? s.ks+'국어B' : '-'}</td>
+      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.korBBr||'-'}</td>
+      <td style="font-size:11px">수학Ⅰ</td>
+      <td style="font-size:11px;font-family:var(--mono)">${s.mathABr ? s.ks+'수학A' : '-'}</td>
+      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.mathABr||'-'}</td>
+      <td style="font-size:11px">수학Ⅱ</td>
+      <td style="font-size:11px;font-family:var(--mono)">${s.mathBBr ? s.ks+'수학B' : '-'}</td>
+      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.mathBBr||'-'}</td>
       <td style="font-size:11px">${s.hankuksa ? (s.hankuksa.includes('자습') ? '한국사 자습' : '한국사') : '-'}</td>
       <td style="font-size:11px;font-family:var(--mono)">${s.hankuksaGroup||'-'}</td>
       <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.hankuksa ? '●' : '-'}</td>
@@ -1431,12 +1422,6 @@ function renderTable() {
         ? `<span style="color:var(--yel);font-size:10px;font-weight:600" title="${s.conflictMsg}">조정됨</span>`
         : ''
       }</td>
-      <td style="font-size:11px">${s.inq1||'-'}</td>
-      <td style="font-size:11px;font-family:var(--mono)">${s.inqTime&&s.inqTime.t1 ? '탐구'+s.inqTime.t1 : '-'}</td>
-      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.inqTime&&s.inqTime.c1 ? s.inqTime.c1 : '-'}</td>
-      <td style="font-size:11px">${s.inq2||'-'}</td>
-      <td style="font-size:11px;font-family:var(--mono)">${s.inqTime&&s.inqTime.t2 ? '탐구'+s.inqTime.t2 : '-'}</td>
-      <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.inqTime&&s.inqTime.c2 ? s.inqTime.c2 : '-'}</td>
       <td><button class="btn-icon" onclick="deleteRow(${i})">✕</button></td>
     `;
     tbody.appendChild(tr);
@@ -1480,18 +1465,18 @@ function downloadSampleExcel() {
 function exportCSV() {
   const rows = [[
     '수험번호','수학담임반','학번','생활반','L&C','이름',
-    '수학S과목','수학S그룹','수학S조합',
-    '수학A과목','수학A그룹','수학A조합',
-    '수학B과목','수학B그룹','수학B조합',
-    '국어A과목','국어A그룹','국어A조합',
-    '국어B과목','국어B그룹','국어B조합',
     '국어S과목','국어S그룹','국어S조합',
+    '수학S과목','수학S그룹','수학S조합',
     '영어과목','영어그룹','영어조합',
-    '논술과목','논술그룹','논술조합',
-    '한국사과목','한국사그룹','한국사조합',
-    'K/S','충돌',
     '탐구1과목','탐구1그룹','탐구1조합',
     '탐구2과목','탐구2그룹','탐구2조합',
+    '논술과목','논술그룹','논술조합',
+    '국어A과목','국어A그룹','국어A조합',
+    '국어B과목','국어B그룹','국어B조합',
+    '수학A과목','수학A그룹','수학A조합',
+    '수학B과목','수학B그룹','수학B조합',
+    '한국사과목','한국사그룹','한국사조합',
+    'K/S','충돌',
   ]];
   students.forEach(raw => {
     const s = calcStudent(raw);
@@ -1501,18 +1486,18 @@ function exportCSV() {
     const korSComb   = s.korBr==='㉡(K)' ? '㉡' : (s.korBr||'');
     rows.push([
       s.sid||'', s.homeroom||'', s.num||'', s.group||'', s.lnc||'', s.name,
-      s._mathtype||s.mathtype||'', s.mathBr?(s.ks+mathSLabel+'S'):'', s.mathBr||'',
-      '수학Ⅰ', s.mathABr?(s.ks+'수학A'):'', s.mathABr||'',
-      '수학Ⅱ', s.mathBBr?(s.ks+'수학B'):'', s.mathBBr||'',
-      '독서', s.korABr?(s.ks+'국어A'):'', s.korABr||'',
-      '문학', s.korBBr?(s.ks+'국어B'):'', s.korBBr||'',
       s._kortype||s.kortype||'', s.korBr?korSGroup:'', korSComb,
+      s._mathtype||s.mathtype||'', s.mathBr?(s.ks+mathSLabel+'S'):'', s.mathBr||'',
       '영어', (s.engClass&&s.engClass!=='')?(s.engKS+'영어'):'', s.engClass||'',
-      s.nonsul?(s.nonsul.includes('자습')?'논술 자습':'논술'):'', s.nonsulGroup||'', s.nonsul?'●':'',
-      s.hankuksa?(s.hankuksa.includes('자습')?'한국사 자습':'한국사'):'', s.hankuksaGroup||'', s.hankuksa?'●':'',
-      s.ks||'', s.conflictMsg||'',
       s.inq1||'', s.inqTime&&s.inqTime.t1?'탐구'+s.inqTime.t1:'', s.inqTime&&s.inqTime.c1?s.inqTime.c1:'',
       s.inq2||'', s.inqTime&&s.inqTime.t2?'탐구'+s.inqTime.t2:'', s.inqTime&&s.inqTime.c2?s.inqTime.c2:'',
+      s.nonsul?(s.nonsul.includes('자습')?'논술 자습':'논술'):'', s.nonsulGroup||'', s.nonsul?'●':'',
+      '독서', s.korABr?(s.ks+'국어A'):'', s.korABr||'',
+      '문학', s.korBBr?(s.ks+'국어B'):'', s.korBBr||'',
+      '수학Ⅰ', s.mathABr?(s.ks+'수학A'):'', s.mathABr||'',
+      '수학Ⅱ', s.mathBBr?(s.ks+'수학B'):'', s.mathBBr||'',
+      s.hankuksa?(s.hankuksa.includes('자습')?'한국사 자습':'한국사'):'', s.hankuksaGroup||'', s.hankuksa?'●':'',
+      s.ks||'', s.conflictMsg||'',
     ]);
   });
     const csv = rows.map(r => r.join(',')).join('\n');
