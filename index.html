@@ -142,6 +142,8 @@ table.dt{width:100%;border-collapse:collapse;font-size:12px}
 .dt td:first-child{text-align:left;font-family:'Noto Sans KR',sans-serif;font-weight:500;font-size:13px}
 .dt tr:last-child td{border-bottom:none}
 .dt tbody tr:hover td{background:rgba(184,134,11,.07)}.dt tbody tr:hover td.sticky{background:color-mix(in srgb, var(--s1) 93%, #c8a96e 7%)}
+.dt tbody tr.selected td{background:rgba(122,184,232,.15);border-top:1px solid rgba(122,184,232,.4);border-bottom:1px solid rgba(122,184,232,.4)}
+.dt tbody tr.selected td.sticky{background:color-mix(in srgb, var(--s1) 82%, #7ab8e8 18%)}
 .dt td input.editable{background:none;border:none;text-align:center;font-family:var(--mono);font-size:12px;color:var(--txt);width:60px;border-radius:4px;padding:1px 3px}
 .dt td input.editable:focus{background:var(--s3);outline:1px solid var(--acc)}
 .dt td input.name-in{width:80px;font-family:'Noto Sans KR',sans-serif;font-size:12px}
@@ -639,11 +641,11 @@ const INQUIRY_MAP = {
   '물리학Ⅰ,화학Ⅰ':       { t1:'A', t2:'C' },
   '사회문화,동아시아사':   { t1:'B', t2:'A' },
   '사회문화,물리학Ⅰ':     { t1:'B', t2:'A' },
-  '사회문화,생명과학Ⅰ':   { t1:'A', t2:'B' },
-  '사회문화,생활과윤리':   { t1:'A', t2:'B' },
+  '사회문화,생명과학Ⅰ':   { t1:'B', t2:'A' },
+  '사회문화,생활과윤리':   { t1:'B', t2:'A' },
   '사회문화,윤리와사상':   { t1:'B', t2:'A' },
-  '사회문화,정치와 법':    { t1:'A', t2:'B' },
-  '사회문화,지구과학Ⅰ':   { t1:'A', t2:'B' },
+  '사회문화,정치와 법':    { t1:'B', t2:'A' },
+  '사회문화,지구과학Ⅰ':   { t1:'B', t2:'A' },
   '사회문화,화학Ⅰ':       { t1:'B', t2:'C' },
   '생명과학Ⅰ,동아시아사': { t1:'B', t2:'A' },
   '생명과학Ⅰ,세계사':     { t1:'A', t2:'B' },
@@ -656,7 +658,7 @@ const INQUIRY_MAP = {
   '생활과윤리,정치와 법':  { t1:'A', t2:'B' },
   '생활과윤리,화학Ⅰ':     { t1:'B', t2:'C' },
   '세계사,동아시아사':     { t1:'B', t2:'A' },
-  '세계사,사회문화':       { t1:'B', t2:'A' },
+  '세계사,사회문화':       { t1:'A', t2:'B' },
   '세계사,생활과윤리':     { t1:'B', t2:'A' },
   '세계지리,사회문화':     { t1:'A', t2:'B' },
   '세계지리,생활과윤리':   { t1:'A', t2:'B' },
@@ -668,7 +670,7 @@ const INQUIRY_MAP = {
   '지구과학Ⅰ,생활과윤리': { t1:'A', t2:'B' },
   '지구과학Ⅰ,세계사':     { t1:'A', t2:'B' },
   '지구과학Ⅰ,정치와 법':  { t1:'A', t2:'B' },
-  '한국지리,사회문화':     { t1:'B', t2:'A' },
+  '한국지리,사회문화':     { t1:'A', t2:'B' },
   '한국지리,생활과윤리':   { t1:'B', t2:'A' },
   '한국지리,세계지리':     { t1:'B', t2:'A' },
   '한국지리,지구과학Ⅰ':   { t1:'B', t2:'A' },
@@ -689,13 +691,14 @@ const SUBJECT_GROUP = {
 };
 
 // 사회문화 조합 균등 배분 카운터
-const _socCounter = { '㉠': 0, '㉡': 0 };
-function getSocCombo() {
-  const pick = _socCounter['㉠'] <= _socCounter['㉡'] ? '㉠' : '㉡';
+const _socCounter = { A: 0, B: 0 };  // 사회문화 탐구A/B 인원 카운터
+function getSocTime() {
+  // A/B 인원 적은 쪽으로 배정
+  const pick = _socCounter.A <= _socCounter.B ? 'A' : 'B';
   _socCounter[pick]++;
   return pick;
 }
-function resetSocCounter() { _socCounter['㉠'] = 0; _socCounter['㉡'] = 0; }
+function resetSocCounter() { _socCounter.A = 0; _socCounter.B = 0; }
 
 // 전체 학생 inqTime 일괄 계산 (사회문화 ㉠/㉡ 균등배분 포함)
 function recalcInqTime() {
@@ -725,13 +728,17 @@ function getInquiryTime(inq1, inq2) {
   else if (INQUIRY_MAP[rev]) { entry = INQUIRY_MAP[rev]; reversed = true; }
 
   if (entry) {
-    // 정상 조합
-    const t1 = reversed ? entry.t2 : entry.t1;
-    const t2 = reversed ? entry.t1 : entry.t2;
-    let c1 = '●', c2 = '●';
-    if (s1 === '사회문화') c1 = getSocCombo();
-    else if (s2 === '사회문화') c2 = getSocCombo();
-    return { t1, t2, c1, c2 };
+    let t1 = reversed ? entry.t2 : entry.t1;
+    let t2 = reversed ? entry.t1 : entry.t2;
+    // 사회문화 포함 시 인원 적은 타임으로 동적 결정
+    if (s1 === '사회문화' && t2 !== 'C') {
+      t1 = getSocTime();
+      t2 = t1 === 'A' ? 'B' : 'A';
+    } else if (s2 === '사회문화' && t1 !== 'C') {
+      t2 = getSocTime();
+      t1 = t2 === 'A' ? 'B' : 'A';
+    }
+    return { t1, t2, c1: '●', c2: '●' };
   }
 
   // 한쪽이 자습/선택불가인 경우 → 수강가능한 쪽만 그룹/조합 배정
@@ -983,11 +990,11 @@ function rebuildCountersFromStudents() {
   });
 
   // 사회문화 조합
-  _socCounter['㉠'] = 0; _socCounter['㉡'] = 0;
+  _socCounter.A = 0; _socCounter.B = 0;
   students.forEach(s => {
     if (s.inqTime) {
-      if (s.inq1 === '사회문화' && s.inqTime.c1 in _socCounter) _socCounter[s.inqTime.c1]++;
-      if (s.inq2 === '사회문화' && s.inqTime.c2 in _socCounter) _socCounter[s.inqTime.c2]++;
+      if (s.inq1 === '사회문화' && s.inqTime.t1 in _socCounter) _socCounter[s.inqTime.t1]++;
+      if (s.inq2 === '사회문화' && s.inqTime.t2 in _socCounter) _socCounter[s.inqTime.t2]++;
     }
   });
 
@@ -1339,6 +1346,12 @@ function renderTable() {
   students.forEach((raw, i) => {
     const s = calcStudent(raw);
     const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.onclick = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+      document.querySelectorAll('#res-body tr').forEach(r => r.classList.remove('selected'));
+      tr.classList.toggle('selected');
+    };
 
     const mathSLabel = (s._mathtype||s.mathtype) === '미적분' ? '미적' : '확통';
     const mathChip = s.mathBr
