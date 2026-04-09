@@ -133,6 +133,9 @@ kbd{background:var(--s3);border:1px solid var(--bd2);border-radius:3px;padding:1
 .btn-sm.pri{background:var(--glow);border-color:var(--acc);color:var(--acc)}
 
 table.dt{width:100%;border-collapse:collapse;font-size:12px}
+.dt-wrap{overflow-x:auto;position:relative}
+.dt th.sticky,.dt td.sticky{position:sticky;z-index:2;background:var(--s1)}
+.dt th.sticky{background:linear-gradient(135deg,#234389,#003674);z-index:3}
 .dt th{background:linear-gradient(135deg,#234389,#003674);padding:9px 12px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.7px;color:#d4a843;text-transform:uppercase;border-bottom:2px solid var(--acc);white-space:nowrap;font-family:var(--title-font)}
 .dt th:first-child{text-align:left}
 .dt td{padding:9px 12px;border-bottom:1px solid var(--bd);text-align:center;font-family:var(--mono);font-size:12px}
@@ -412,16 +415,16 @@ window.dispatchEvent(new Event('fbReady'));
           <button class="btn-sm" onclick="exportCSV()">CSV</button>
         </div>
       </div>
-      <div style="overflow-x:auto">
-        <table class="dt">
+      <div style="overflow-x:auto;position:relative">
+        <table class="dt" style="border-collapse:collapse">
           <thead>
             <tr>
-              <th>수험번호</th>
-              <th>수학담임반</th>
-              <th>학번</th>
-              <th>생활반</th>
-              <th>L&C</th>
-              <th>이름</th>
+              <th class="sticky" style="left:0px;min-width:80px;max-width:80px">수험번호</th>
+              <th class="sticky" style="left:80px;min-width:60px;max-width:60px">수학담임반</th>
+              <th class="sticky" style="left:140px;min-width:60px;max-width:60px">학번</th>
+              <th class="sticky" style="left:200px;min-width:50px;max-width:50px">생활반</th>
+              <th class="sticky" style="left:250px;min-width:50px;max-width:50px">L&C</th>
+              <th class="sticky" style="left:300px;min-width:80px;max-width:80px;border-right:2px solid var(--acc)">이름</th>
               <th>수학S과목</th><th>수학S그룹</th><th>수학S조합</th>
               <th>수학A과목</th><th>수학A그룹</th><th>수학A조합</th>
               <th>수학B과목</th><th>수학B그룹</th><th>수학B조합</th>
@@ -570,7 +573,6 @@ let BRACKETS = {
   '국어S언매K': [
     { from: 80, to: 98, label: '㉠' },
     { from: 61, to: 80, label: '㉡' },
-    { from:  8, to: 62, label: '㉢' },
   ],
   '국어S언매S': [
     { from: 54, to: 79, label: '㉠' },
@@ -1348,8 +1350,8 @@ function renderTable() {
       : '<span class="chip chip-none">-</span>';
 
     tr.innerHTML = `
-      <td><input class="editable" style="width:80px;font-size:11px" value="${s.sid||''}" onchange="students[${i}].sid=this.value" placeholder="-"></td>
-      <td>
+      <td class="sticky" style="left:0;min-width:80px;max-width:80px"><input class="editable" style="width:74px;font-size:11px" value="${s.sid||''}" onchange="students[${i}].sid=this.value" placeholder="-"></td>
+      <td class="sticky" style="left:80px;min-width:60px;max-width:60px">
         ${s.hrCandidates && s.hrCandidates.length > 1
           ? `<select style="background:var(--s3);border:1px solid var(--yel);border-radius:5px;color:var(--yel);font-family:inherit;font-size:11px;padding:3px 5px;outline:none;font-weight:700"
                onchange="students[${i}].homeroom=this.value;students[${i}].ks=HOMEROOM_KS[this.value]||'K';students[${i}].lnc=HOMEROOM_LNC[this.value]||'';renderTable()">
@@ -1360,10 +1362,10 @@ function renderTable() {
             : `<span style="color:var(--t3)">-</span>`
         }
       </td>
-      <td><input class="editable" style="width:60px;font-family:var(--mono);font-size:12px" value="${s.num||''}" onchange="students[${i}].num=this.value" placeholder="-"></td>
-      <td>${s.group ? `<span style="font-family:var(--mono);font-weight:700;color:var(--grn)">${s.group}</span>` : '<span style="color:var(--t3)">-</span>'}</td>
-      <td>${s.lnc ? `<span class="chip chip-${s.ks||'none'}" style="font-size:11px">${s.lnc}</span>` : '<span style="color:var(--t3)">-</span>'}</td>
-      <td><input class="editable name-in" value="${s.name||''}" onchange="students[${i}].name=this.value"></td>
+      <td class="sticky" style="left:140px;min-width:60px;max-width:60px"><input class="editable" style="width:54px;font-family:var(--mono);font-size:12px" value="${s.num||''}" onchange="students[${i}].num=this.value" placeholder="-"></td>
+      <td class="sticky" style="left:200px;min-width:50px;max-width:50px">${s.group ? `<span style="font-family:var(--mono);font-weight:700;color:var(--grn)">${s.group}</span>` : '<span style="color:var(--t3)">-</span>'}</td>
+      <td class="sticky" style="left:250px;min-width:50px;max-width:50px">${s.lnc ? `<span class="chip chip-${s.ks||'none'}" style="font-size:11px">${s.lnc}</span>` : '<span style="color:var(--t3)">-</span>'}</td>
+      <td class="sticky" style="left:300px;min-width:80px;max-width:80px;border-right:2px solid var(--bd2)"><input class="editable name-in" style="width:74px" value="${s.name||''}" onchange="students[${i}].name=this.value"></td>
       <td style="font-size:11px">${(s._mathtype||s.mathtype)||'-'}</td>
       <td style="font-size:11px;font-family:var(--mono)">${s.mathBr ? s.ks+'수학S' : '-'}</td>
       <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.mathBr||'-'}</td>
