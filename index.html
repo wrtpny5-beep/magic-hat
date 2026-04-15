@@ -1127,7 +1127,14 @@ async function loadResultCSV(file) {
   const uploadDate = new Date().toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
   await storageSet('csv_upload_date', uploadDate, true);
   document.getElementById('csv-upload-date').textContent = `📅 CSV 최종 업데이트: ${uploadDate}`;
-  toast(`✅ ${total}명 로드 | 영어 K:${_engCounts.K} S:${_engCounts.S}`, 'ok');
+
+  // 기존 배정은 카운터로만 흡수, 화면은 초기화
+  students = [];
+  await storageDelete('students_data', true);
+  renderTable();
+  const stEl = document.getElementById('students-status');
+  if (stEl) stEl.textContent = `저장된 배정 데이터: 없음 (카운터 ${total}명 반영됨)`;
+  toast(`✅ ${total}명 카운터 반영 완료 — 신규생 업로드하세요`, 'ok');
 }
 
 async function resetAllCounters() {
@@ -1174,10 +1181,11 @@ async function balanceHomerooms() {
   // ── 4. 생활반 카운터: 기존 저장값 복원 후 이어서 배정 ──
   Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
   Object.entries(savedGrp).forEach(([k, v]) => { _groupCounters[k] = [...v]; });
-  _socCounter['㉠'] = savedSoc['㉠'] || 0;
-  _socCounter['㉡'] = savedSoc['㉡'] || 0;
+  _socCounter.A = savedSoc.A || 0;
+  _socCounter.B = savedSoc.B || 0;
 
   // ── 5. ks, L&C, 생활반 배정 ──
+  console.log('[step5] 학생수:', students.length, '샘플:', students[0]?.homeroom, students[0]?.group, students[0]?.lnc);
   students.forEach(s => {
     if (s.homeroom) {
       s.ks    = HOMEROOM_KS[s.homeroom]  || 'K';
@@ -1185,6 +1193,7 @@ async function balanceHomerooms() {
       s.group = assignGroup(s.homeroom);
     }
   });
+  console.log('[step5 후] 샘플:', students[0]?.homeroom, students[0]?.group, students[0]?.lnc);
 
   // ── 6. 영어 K/S 균등배분 ──
   // 담임반 K/S 무관, 전체 학생 K영어/S영어 인원 적은 쪽으로 배정
