@@ -628,16 +628,7 @@ const GROUP_CAPS = { A:30, X:30, I:30, O:30, M:30, K:30, N:30, D:45, S:45 };
 // 담임반 순서 (위→아래)
 const CLASS_ORDER = ['A','X','I','O','M','K','N','D','S'];
 
-// hrCandidates의 최상위 반에서 3반 아래까지 배정 풀 확장
-function expandCandidates(hrCandidates) {
-  if (!hrCandidates || !hrCandidates.length) return hrCandidates;
-  const positions = hrCandidates.map(c => CLASS_ORDER.indexOf(c)).filter(p => p >= 0);
-  if (!positions.length) return hrCandidates;
-  const topPos = Math.min(...positions);
-  return CLASS_ORDER.slice(topPos, topPos + 4); // 최상위 반 + 3반 아래
-}
-
-// 전형방법 → 장학퀀텀 티어 번호 추출 (없으면 null)
+// 전형방법 → 장학퀀텀 티어 번호 추출 (없으면 null = 비장학)
 function getJanghakTier(s) {
   if (!s.jeonhyeong) return null;
   const m = String(s.jeonhyeong).match(/^장학퀀텀_(\d+)T/i);
@@ -648,31 +639,40 @@ function isJanghak(s) { return getJanghakTier(s) !== null; }
 // A반 우선 장학: 0T, 4T만
 function isJanghakA(s) {
   const t = getJanghakTier(s);
-  return t !== null && (t === 0 || t === 4);
-}
-// X~I 배정 장학: 0T/4T 제외한 나머지 장학퀀텀
-function isJanghakXI(s) {
-  const t = getJanghakTier(s);
-  return t !== null && t !== 0 && t !== 4;
+  return t === 0 || t === 4;
 }
 
-// cap 미초과 & 최소 인원 반 선택
-// - 자연 후보(hrCandidates) 중 cap 미초과 반 있으면 그 안에서 최소 인원 선택
-// - 자연 후보 전부 cap 초과 시에만 CLASS_ORDER 기준 3반 아래로 확장 (overflow)
-function pickHomeroom(hrCandidates, counts, caps) {
+// 비장학생 후보 풀: 성적 구간 최상위 반 기준 위 2개 ~ 아래 2개 (앞뒤로 분산)
+// A반은 장학(0T/4T) 전용 → 비장학 후보에서 항상 제외
+function getBaseCandidates(hrCandidates) {
+  const filtered = (hrCandidates || []).filter(c => c !== 'A');
+  if (!filtered.length) return [];
+  const positions = filtered.map(c => CLASS_ORDER.indexOf(c)).filter(p => p >= 0);
+  if (!positions.length) return filtered;
+  const topPos = Math.min(...positions);
+  const lo = Math.max(1, topPos - 2);  // 1 = X (A 제외)
+  const hi = Math.min(CLASS_ORDER.length, topPos + 3);
+  return CLASS_ORDER.slice(lo, hi);
+}
+
+// 후보 풀 중 현재 인원 가장 적은 반 선택 (cap = 균등 목표치)
+// - cap 미초과 반이 있으면 그중 최소 인원
+// - 전부 cap 도달 시에도 후보 풀 안에서 최소 인원 (욱여넣기 방지: 풀 자체가 좁음)
+function pickHomeroom(pool, counts, caps) {
   caps = caps || HOMEROOM_CAPS;
+  if (!pool || !pool.length) return null;
+  const under = pool.filter(c => (counts[c] || 0) < (caps[c] || 84));
+  const target = under.length > 0 ? under : pool;
+  return target.reduce((a, b) => (counts[a] || 0) <= (counts[b] || 0) ? a : b);
+}
 
-  // 1단계: 자연 후보 중 cap 미초과 반
-  const naturalPool = hrCandidates.filter(c => (counts[c] || 0) < (caps[c] || 90));
-  if (naturalPool.length > 0) {
-    return naturalPool.reduce((a, b) => (counts[a] || 0) <= (counts[b] || 0) ? a : b);
+// 장학 0T/4T 후보: A→X→I (위 반부터 cap 차면 다음)
+function pickJanghakA(counts, caps) {
+  caps = caps || HOMEROOM_CAPS;
+  for (const c of ['A', 'X', 'I']) {
+    if ((counts[c] || 0) < (caps[c] || 84)) return c;
   }
-
-  // 2단계: 자연 후보 전부 cap → 3반 아래까지 확장 후 최소 인원 선택
-  const expanded = expandCandidates(hrCandidates);
-  const expandedPool = expanded.filter(c => (counts[c] || 0) < (caps[c] || 90));
-  const pool = expandedPool.length > 0 ? expandedPool : expanded; // 전체 cap 초과 fallback
-  return pool.reduce((a, b) => (counts[a] || 0) <= (counts[b] || 0) ? a : b);
+  return 'I'; // 전부 차면 마지막 I
 }
 
 // 생활반 균등 배분 (담임반별 카운터, GROUP_CAPS 반영)
@@ -1210,6 +1210,70 @@ async function resetAllCounters() {
   } catch(e) { toast('초기화 실패', 'err'); }
 }
 
+// ════════════════════════════════════════════════
+// 담임반 배정 공통 로직 (3그룹: 장학0/4T → 비-A장학(티어순) → 비장학)
+//   counts는 호출 측에서 savedHr + 기존 students 합산해 전달
+// ════════════════════════════════════════════════
+function assignHomerooms(pool, counts) {
+  // 그룹 분리
+  const janghakA = [];   // 0T/4T → A우선
+  const janghakXI = [];  // 그 외 장학 → X/I, 티어 작을수록 윗반
+  const normal = [];     // 비장학 → 성적 구간 + 아래 2반
+
+  pool.forEach(s => {
+    if (isJanghakA(s)) janghakA.push(s);
+    else if (isJanghak(s)) janghakXI.push(s);
+    else normal.push(s);
+  });
+
+  // 1) 장학 0T/4T: A→X→I (cap 차면 다음 윗반)
+  janghakA.forEach(s => {
+    const pick = pickJanghakA(counts, HOMEROOM_CAPS);
+    s.homeroom = pick;
+    counts[pick] = (counts[pick] || 0) + 1;
+  });
+
+  // 2) 비-A 장학: 티어 작은 순으로 X부터, X cap 차면 I
+  janghakXI
+    .sort((a, b) => getJanghakTier(a) - getJanghakTier(b))
+    .forEach(s => {
+      const pick = (counts['X'] || 0) < (HOMEROOM_CAPS['X'] || 84) ? 'X' : 'I';
+      s.homeroom = pick;
+      counts[pick] = (counts[pick] || 0) + 1;
+    });
+
+  // 3) 비장학: 변환백분위 높은 순, 성적구간 최상위 + 아래 2반 중 최소 인원
+  normal
+    .map(s => ({ s, cv: calcStudent(s).cvMath ?? -1 }))
+    .sort((a, b) => b.cv - a.cv)
+    .forEach(({ s }) => {
+      const calc = calcStudent(s);
+      const candPool = getBaseCandidates(calc.hrCandidates);
+      if (!candPool.length) return;
+      const pick = pickHomeroom(candPool, counts, HOMEROOM_CAPS);
+      s.homeroom = pick;
+      counts[pick] = (counts[pick] || 0) + 1;
+    });
+
+  // 4) 캐스케이드 재분배: cap 초과 반 → 성적 최저 비장학 신규생을 한 칸 아래로
+  //    (이번에 배정한 비장학생 'normal'만 이동 대상. 기존생·장학생은 안 건드림)
+  //    맨 아래 반(S)은 내릴 곳 없음 → 그 위에서 막히는 1~2명은 허용
+  const cv = s2 => (calcStudent(s2).cvMath ?? Infinity);
+  for (let ci = 0; ci < CLASS_ORDER.length - 1; ci++) {
+    const c = CLASS_ORDER[ci];
+    const below = CLASS_ORDER[ci + 1];
+    const cap = HOMEROOM_CAPS[c] || 84;
+    while ((counts[c] || 0) > cap) {
+      const movable = normal.filter(s => s.homeroom === c);
+      if (!movable.length) break; // 내릴 비장학 신규생 없음 → 초과 허용
+      const victim = movable.reduce((a, b) => cv(a) <= cv(b) ? a : b);
+      victim.homeroom = below;
+      counts[c]    = (counts[c] || 0) - 1;
+      counts[below] = (counts[below] || 0) + 1;
+    }
+  }
+}
+
 async function balanceHomerooms() {
   // ── 1. 저장된 기존 인원 카운터 로드 ──
   const { hrCounts: savedHr, grpCounters: savedGrp, socCounter: savedSoc } = await loadCounters();
@@ -1219,24 +1283,7 @@ async function balanceHomerooms() {
   const counts = { ...savedHr };
   students.forEach(s => { if (s.homeroom) counts[s.homeroom] = (counts[s.homeroom] || 0) + 1; });
 
-  // 장학생 먼저, 그 다음 변환백분위 내림차순으로 배정 (성적 높은 순 처리)
-  const toAssign = students
-    .map((s, i) => ({ s, i, cv: calcStudent(s).cvMath ?? -1 }))
-    .filter(({ s }) => !s.homeroom)
-    .sort((a, b) => (isJanghak(b.s) - isJanghak(a.s)) || (b.cv - a.cv));
-
-  toAssign.forEach(({ s }) => {
-    const calc = calcStudent(s);
-    // 장학퀀텀 0T/4T: A→X→I / 나머지 장학: X→I / 비장학: 일반 균등배분
-    let cands;
-    if (isJanghakA(s))       cands = ['A', 'X', 'I'];
-    else if (isJanghakXI(s)) cands = ['X', 'I'];
-    else                     cands = calc.hrCandidates;
-    if (!cands.length) return;
-    const pick = pickHomeroom(cands, counts, HOMEROOM_CAPS);
-    s.homeroom = pick;
-    counts[pick] = (counts[pick] || 0) + 1;
-  });
+  assignHomerooms(students.filter(s => !s.homeroom), counts);
 
   // ── 4. 생활반 카운터: 기존 저장값 복원 후 이어서 배정 ──
   Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
@@ -1308,23 +1355,8 @@ async function balanceTransfers() {
   const counts = { ...savedHr };
   students.forEach(s => { if (s.homeroom) counts[s.homeroom] = (counts[s.homeroom] || 0) + 1; });
 
-  // ── 1. 담임반 배정 (장학 우선 + 변환백분위 내림차순 정렬, 편입생만) ──
-  const toAssign = students
-    .map((s, i) => ({ s, i, cv: calcStudent(s).cvMath ?? -1 }))
-    .filter(({ s, i }) => transferIdx.has(i) && !s.homeroom)
-    .sort((a, b) => (isJanghak(b.s) - isJanghak(a.s)) || (b.cv - a.cv));
-
-  toAssign.forEach(({ s }) => {
-    const calc = calcStudent(s);
-    let cands;
-    if (isJanghakA(s))       cands = ['A', 'X', 'I'];
-    else if (isJanghakXI(s)) cands = ['X', 'I'];
-    else                     cands = calc.hrCandidates;
-    if (!cands.length) return;
-    const pick = pickHomeroom(cands, counts, HOMEROOM_CAPS);
-    s.homeroom = pick;
-    counts[pick] = (counts[pick] || 0) + 1;
-  });
+  // ── 1. 담임반 배정 (편입생만, 공통 로직) ──
+  assignHomerooms(students.filter((s, i) => transferIdx.has(i) && !s.homeroom), counts);
 
   // ── 3. K/S, L&C, 생활반 배정 (편입생만) ──
   students.forEach((s, i) => {
@@ -1514,12 +1546,16 @@ function renderTable() {
       <td class="sticky" style="left:80px;min-width:60px">
         ${s.hrCandidates && s.hrCandidates.length > 1
           ? `<select style="background:var(--s3);border:1px solid var(--yel);border-radius:5px;color:var(--yel);font-family:inherit;font-size:11px;padding:3px 5px;outline:none;font-weight:700"
-               onchange="students[${i}].homeroom=this.value;students[${i}].ks=HOMEROOM_KS[this.value]||'K';students[${i}].lnc=HOMEROOM_LNC[this.value]||'';renderTable()">
+               onchange="setHomeroom(${i}, this.value)">
                ${s.hrCandidates.map(c=>`<option value="${c}" ${s.homeroom===c?'selected':''}>${c}</option>`).join('')}
              </select>`
           : s.homeroom
             ? `<span style="font-family:var(--mono);font-weight:700;color:var(--grn)">${s.homeroom}</span>`
-            : `<span style="color:var(--t3)">-</span>`
+            : `<select style="background:var(--s3);border:1px dashed var(--red);border-radius:5px;color:var(--red);font-family:inherit;font-size:11px;padding:3px 5px;outline:none;font-weight:700"
+                 onchange="setHomeroom(${i}, this.value)" title="미배정 — 수동 지정">
+                 <option value="" selected>미배정</option>
+                 ${CLASS_ORDER.map(c=>`<option value="${c}">${c}</option>`).join('')}
+               </select>`
         }
       </td>
       <td class="sticky" style="left:140px;min-width:60px;max-width:60px"><input class="editable" style="width:54px;font-family:var(--mono);font-size:12px" value="${s.num||''}" onchange="students[${i}].num=this.value" placeholder="-"></td>
@@ -1574,6 +1610,21 @@ function renderTable() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function setHomeroom(i, val) {
+  const s = students[i];
+  s.homeroom = val || '';
+  if (val) {
+    s.ks  = HOMEROOM_KS[val] || 'K';
+    s.lnc = HOMEROOM_LNC[val] || '';
+    s.group = assignGroup(val);
+  } else {
+    s.ks = ''; s.lnc = ''; s.group = null;
+  }
+  recalcInqTime();
+  renderTable();
+  saveStudents();
 }
 
 function setKS(i, ks) {
