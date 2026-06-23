@@ -637,9 +637,23 @@ function expandCandidates(hrCandidates) {
   return CLASS_ORDER.slice(topPos, topPos + 4); // 최상위 반 + 3반 아래
 }
 
-// 전형방법 → 장학퀀텀 여부 판별
-function isJanghak(s) {
-  return !!(s.jeonhyeong && String(s.jeonhyeong).startsWith('장학퀀텀'));
+// 전형방법 → 장학퀀텀 티어 번호 추출 (없으면 null)
+function getJanghakTier(s) {
+  if (!s.jeonhyeong) return null;
+  const m = String(s.jeonhyeong).match(/^장학퀀텀_(\d+)T/i);
+  return m ? parseInt(m[1]) : null;
+}
+// 장학퀀텀 여부
+function isJanghak(s) { return getJanghakTier(s) !== null; }
+// A반 우선 장학: 0T, 4T만
+function isJanghakA(s) {
+  const t = getJanghakTier(s);
+  return t !== null && (t === 0 || t === 4);
+}
+// X~I 배정 장학: 0T/4T 제외한 나머지 장학퀀텀
+function isJanghakXI(s) {
+  const t = getJanghakTier(s);
+  return t !== null && t !== 0 && t !== 4;
 }
 
 // cap 미초과 & 최소 인원 반 선택
@@ -1213,10 +1227,11 @@ async function balanceHomerooms() {
 
   toAssign.forEach(({ s }) => {
     const calc = calcStudent(s);
-    // 장학퀀텀은 점수 무관 A반 우선 → A를 후보 맨 앞에 삽입
-    const cands = isJanghak(s)
-      ? ['A', ...calc.hrCandidates.filter(c => c !== 'A')]
-      : calc.hrCandidates;
+    // 장학퀀텀 0T/4T: A→X→I / 나머지 장학: X→I / 비장학: 일반 균등배분
+    let cands;
+    if (isJanghakA(s))       cands = ['A', 'X', 'I'];
+    else if (isJanghakXI(s)) cands = ['X', 'I'];
+    else                     cands = calc.hrCandidates;
     if (!cands.length) return;
     const pick = pickHomeroom(cands, counts, HOMEROOM_CAPS);
     s.homeroom = pick;
@@ -1301,9 +1316,10 @@ async function balanceTransfers() {
 
   toAssign.forEach(({ s }) => {
     const calc = calcStudent(s);
-    const cands = isJanghak(s)
-      ? ['A', ...calc.hrCandidates.filter(c => c !== 'A')]
-      : calc.hrCandidates;
+    let cands;
+    if (isJanghakA(s))       cands = ['A', 'X', 'I'];
+    else if (isJanghakXI(s)) cands = ['X', 'I'];
+    else                     cands = calc.hrCandidates;
     if (!cands.length) return;
     const pick = pickHomeroom(cands, counts, HOMEROOM_CAPS);
     s.homeroom = pick;
