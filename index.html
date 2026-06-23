@@ -618,16 +618,34 @@ const HOMEROOM_LNC = { A:'A', X:'B', I:'B', O:'C', M:'C', K:'D', N:'D', D:'E', S
 // 수학담임반 → 생활반 그룹 수
 const HOMEROOM_GROUP_COUNT = { A:2, X:3, I:3, O:3, M:3, K:3, N:3, D:2, S:2 };
 
-// 생활반 균등 배분 (담임반별 카운터)
+// 담임반 최대 인원 cap
+const HOMEROOM_CAPS = { A:60, X:90, I:90, O:90, M:90, K:90, N:90, D:90, S:90 };
+
+// 생활반(조) 최대 인원 cap (D/S 조는 45명, 나머지 30명)
+const GROUP_CAPS = { A:30, X:30, I:30, O:30, M:30, K:30, N:30, D:45, S:45 };
+
+// 후보 담임반 중 cap 미초과 & 최소 인원 반 선택
+function pickHomeroom(candidates, counts, caps) {
+  caps = caps || HOMEROOM_CAPS;
+  const available = candidates.filter(c => (counts[c] || 0) < (caps[c] || 90));
+  const pool = available.length > 0 ? available : candidates; // 전체 cap 초과 시 fallback
+  return pool.reduce((a, b) => (counts[a] || 0) <= (counts[b] || 0) ? a : b);
+}
+
+// 생활반 균등 배분 (담임반별 카운터, GROUP_CAPS 반영)
 const _groupCounters = {};
 let _engCounts = { K: 0, S: 0 };  // 영어 K/S 인원 전역 카운터
 function assignGroup(homeroom) {
   if (!homeroom || !HOMEROOM_GROUP_COUNT[homeroom]) return null;
   if (!_groupCounters[homeroom]) _groupCounters[homeroom] = Array(HOMEROOM_GROUP_COUNT[homeroom]).fill(0);
-  const counts = _groupCounters[homeroom];
-  const minIdx = counts.indexOf(Math.min(...counts));
-  counts[minIdx]++;
-  return minIdx + 1; // 1부터 시작
+  const cnts = _groupCounters[homeroom];
+  const cap  = GROUP_CAPS[homeroom] || 30;
+  // cap 미초과 조 우선, 전체 초과 시 전체 대상
+  const pool = cnts.map((c, i) => ({ c, i })).filter(({ c }) => c < cap);
+  const target = pool.length > 0 ? pool : cnts.map((c, i) => ({ c, i }));
+  const minEntry = target.reduce((a, b) => a.c <= b.c ? a : b);
+  cnts[minEntry.i]++;
+  return minEntry.i + 1; // 1부터 시작
 }
 function resetGroupCounters() {
   Object.keys(_groupCounters).forEach(k => delete _groupCounters[k]);
@@ -1173,8 +1191,8 @@ async function balanceHomerooms() {
 
   undecided.forEach(({ i, candidates }) => {
     if (students[i].homeroom) return;
-    candidates.forEach(c => { if (!counts[c]) counts[c] = 0; });
-    const pick = candidates.reduce((a, b) => (counts[a] || 0) <= (counts[b] || 0) ? a : b);
+    candidates.forEach(c => { if (counts[c] == null) counts[c] = 0; });
+    const pick = pickHomeroom(candidates, counts, HOMEROOM_CAPS);
     students[i].homeroom = pick;
     counts[pick] = (counts[pick] || 0) + 1;
   });
@@ -1270,7 +1288,7 @@ async function balanceTransfers() {
   undecided.forEach(({ i, candidates }) => {
     if (students[i].homeroom) return;
     candidates.forEach(c => { if (counts[c] == null) counts[c] = 0; });
-    const pick = candidates.reduce((a, b) => (counts[a] || 0) <= (counts[b] || 0) ? a : b);
+    const pick = pickHomeroom(candidates, counts, HOMEROOM_CAPS);
     students[i].homeroom = pick;
     counts[pick] = (counts[pick] || 0) + 1;
   });
