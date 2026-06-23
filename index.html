@@ -637,14 +637,9 @@ function expandCandidates(hrCandidates) {
   return CLASS_ORDER.slice(topPos, topPos + 4); // 최상위 반 + 3반 아래
 }
 
-// 장학 여부에 따라 A반 후보 필터링
-// 비장학생이 A/X 중복구간(82~100)이면 A 제외 → X로
-function getEffectiveCandidates(s, hrCandidates) {
-  const isJanghak = s.jeonhyeong && String(s.jeonhyeong).startsWith('장학퀀텀');
-  if (!isJanghak && hrCandidates.includes('A') && hrCandidates.includes('X')) {
-    return hrCandidates.filter(c => c !== 'A');
-  }
-  return hrCandidates;
+// 전형방법 → 장학퀀텀 여부 판별
+function isJanghak(s) {
+  return !!(s.jeonhyeong && String(s.jeonhyeong).startsWith('장학퀀텀'));
 }
 
 // cap 미초과 & 최소 인원 반 선택
@@ -1210,12 +1205,16 @@ async function balanceHomerooms() {
   const counts = { ...savedHr };
   students.forEach(s => { if (s.homeroom) counts[s.homeroom] = (counts[s.homeroom] || 0) + 1; });
 
-  students.forEach(s => {
-    if (s.homeroom) return;
+  // 장학생 먼저, 그 다음 변환백분위 내림차순으로 배정 (성적 높은 순 처리)
+  const toAssign = students
+    .map((s, i) => ({ s, i, cv: calcStudent(s).cvMath ?? -1 }))
+    .filter(({ s }) => !s.homeroom)
+    .sort((a, b) => (isJanghak(b.s) - isJanghak(a.s)) || (b.cv - a.cv));
+
+  toAssign.forEach(({ s }) => {
     const calc = calcStudent(s);
     if (!calc.hrCandidates.length) return;
-    const cands = getEffectiveCandidates(s, calc.hrCandidates);
-    const pick = pickHomeroom(cands, counts, HOMEROOM_CAPS);
+    const pick = pickHomeroom(calc.hrCandidates, counts, HOMEROOM_CAPS);
     s.homeroom = pick;
     counts[pick] = (counts[pick] || 0) + 1;
   });
@@ -1290,13 +1289,16 @@ async function balanceTransfers() {
   const counts = { ...savedHr };
   students.forEach(s => { if (s.homeroom) counts[s.homeroom] = (counts[s.homeroom] || 0) + 1; });
 
-  // ── 1. 담임반 배정 (CLASS_ORDER 기준 3반 이내 확장 + cap 반영 균등배분, 편입생만) ──
-  students.forEach((s, i) => {
-    if (!transferIdx.has(i) || s.homeroom) return;
+  // ── 1. 담임반 배정 (장학 우선 + 변환백분위 내림차순 정렬, 편입생만) ──
+  const toAssign = students
+    .map((s, i) => ({ s, i, cv: calcStudent(s).cvMath ?? -1 }))
+    .filter(({ s, i }) => transferIdx.has(i) && !s.homeroom)
+    .sort((a, b) => (isJanghak(b.s) - isJanghak(a.s)) || (b.cv - a.cv));
+
+  toAssign.forEach(({ s }) => {
     const calc = calcStudent(s);
     if (!calc.hrCandidates.length) return;
-    const cands = getEffectiveCandidates(s, calc.hrCandidates);
-    const pick = pickHomeroom(cands, counts, HOMEROOM_CAPS);
+    const pick = pickHomeroom(calc.hrCandidates, counts, HOMEROOM_CAPS);
     s.homeroom = pick;
     counts[pick] = (counts[pick] || 0) + 1;
   });
