@@ -1167,8 +1167,8 @@ async function balanceHomerooms() {
     .filter(({ i, calc }) => !students[i].homeroom && calc.hrCandidates.length > 1)
     .map(({ i, calc }) => ({ i, candidates: calc.hrCandidates }));
 
-  // students 배열 전체에서 직접 카운트 (가장 정확)
-  const counts = {};
+  // CSV로 흡수된 기존 인원(savedHr) + 현재 students 배정 인원 합산
+  const counts = { ...savedHr };
   students.forEach(s => { if (s.homeroom) counts[s.homeroom] = (counts[s.homeroom] || 0) + 1; });
 
   undecided.forEach(({ i, candidates }) => {
@@ -1244,8 +1244,9 @@ async function balanceTransfers() {
     return;
   }
 
-  // 현재 배정된 학생 기준으로 담임반 인원 카운트
-  const counts = {};
+  // Firebase 저장 인원(CSV 흡수분) + 현재 students 배정 인원 합산
+  const { hrCounts: savedHr } = await loadCounters();
+  const counts = { ...savedHr };
   students.forEach(s => { if (s.homeroom) counts[s.homeroom] = (counts[s.homeroom] || 0) + 1; });
 
   // ── 1. 단일 후보 확정 ──
