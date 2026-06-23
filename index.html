@@ -412,6 +412,7 @@ window.dispatchEvent(new Event('fbReady'));
           <button class="btn-sm" onclick="addStudentRow()">+ 행 추가</button>
           <button class="btn-sm pri" onclick="recalcAll()">재계산</button>
           <button class="btn-sm" onclick="balanceHomerooms()" style="border-color:var(--yel);color:var(--yel)">담임반 균등배분</button>
+          <button class="btn-sm" onclick="balanceTransfers()" style="border-color:var(--grn);color:var(--grn)" title="homeroom 미배정 학생(편입생)만 수학반+생활반 균등배분">편입 균등배분</button>
           <button class="btn-sm" onclick="resetAllCounters()" style="border-color:var(--t3);color:var(--t3)" title="전체 인원 카운터 초기화">카운터 초기화</button>
           <button class="btn-sm" onclick="clearStudents()" style="border-color:var(--red);color:var(--red)" title="저장된 배정 데이터 전체 삭제">데이터 초기화</button>
           <button class="btn-sm" onclick="exportCSV()">CSV</button>
@@ -1229,6 +1230,91 @@ async function balanceHomerooms() {
   const stEl = document.getElementById('students-status');
   if (stEl) stEl.textContent = `저장된 배정 데이터: ${students.length}명 (영어 K:${_engCounts.K} / S:${_engCounts.S})`;
   toast(`⚖️ 균등배분 완료 | 영어 K:${_engCounts.K} S:${_engCounts.S}`, 'ok');
+}
+
+// ── 편입 균등배분 ──
+// homeroom이 없는 학생(편입생)만 대상으로 수학반+생활반 균등배분.
+// 기존 학생 배정은 유지하고 인원 카운트만 참조.
+async function balanceTransfers() {
+  // 처리 대상: 담임반 미배정 학생 인덱스 수집
+  const transferIdx = new Set();
+  students.forEach((s, i) => { if (!s.homeroom) transferIdx.add(i); });
+  if (!transferIdx.size) {
+    toast('⚠️ 편입 배정할 학생이 없습니다 (담임반 미배정 학생 없음)', 'err');
+    return;
+  }
+
+  // 현재 배정된 학생 기준으로 담임반 인원 카운트
+  const counts = {};
+  students.forEach(s => { if (s.homeroom) counts[s.homeroom] = (counts[s.homeroom] || 0) + 1; });
+
+  // ── 1. 단일 후보 확정 ──
+  students.forEach((s, i) => {
+    if (!transferIdx.has(i)) return;
+    const calc = calcStudent(s);
+    if (calc.hrCandidates.length === 1) {
+      s.homeroom = calc.hrCandidates[0];
+      counts[s.homeroom] = (counts[s.homeroom] || 0) + 1;
+    }
+  });
+
+  // ── 2. 복수 후보 균등배분 ──
+  const undecided = [];
+  students.forEach((s, i) => {
+    if (!transferIdx.has(i) || s.homeroom) return;
+    const calc = calcStudent(s);
+    if (calc.hrCandidates.length > 1) undecided.push({ i, candidates: calc.hrCandidates });
+  });
+
+  undecided.forEach(({ i, candidates }) => {
+    if (students[i].homeroom) return;
+    candidates.forEach(c => { if (counts[c] == null) counts[c] = 0; });
+    const pick = candidates.reduce((a, b) => (counts[a] || 0) <= (counts[b] || 0) ? a : b);
+    students[i].homeroom = pick;
+    counts[pick] = (counts[pick] || 0) + 1;
+  });
+
+  // ── 3. K/S, L&C, 생활반 배정 (편입생만) ──
+  students.forEach((s, i) => {
+    if (!transferIdx.has(i) || !s.homeroom) return;
+    s.ks    = HOMEROOM_KS[s.homeroom]  || 'K';
+    s.lnc   = HOMEROOM_LNC[s.homeroom] || '';
+    s.group = assignGroup(s.homeroom);
+  });
+
+  // ── 4. 영어 K/S (편입생만, 기존 engKS 보존) ──
+  // 기존 학생 engKS 카운트 먼저 집계
+  const engCounts = { K: 0, S: 0 };
+  students.forEach((s, i) => {
+    if (transferIdx.has(i)) return; // 편입생 제외하고 기존만
+    if (s.engKS === 'K' || s.engKS === 'S') engCounts[s.engKS]++;
+  });
+  // 편입생에게 균등 배정
+  students.forEach((s, i) => {
+    if (!transferIdx.has(i)) return;
+    if (!s.eng) { s.engKS = s.ks || 'K'; return; }
+    const canK = !!getEngClass(s.exam, s.eng, 'K');
+    const canS = !!getEngClass(s.exam, s.eng, 'S');
+    if      (canK && canS) { s.engKS = engCounts.K <= engCounts.S ? 'K' : 'S'; }
+    else if (canK)         { s.engKS = 'K'; }
+    else if (canS)         { s.engKS = 'S'; }
+    else                   { s.engKS = s.ks || 'K'; }
+    engCounts[s.engKS]++;
+  });
+  _engCounts = { ...engCounts };
+
+  // ── 5. 카운터 저장 ──
+  await saveCounters(counts, { ..._groupCounters }, { ..._socCounter }, engCounts);
+
+  // ── 6. 학번, 탐구, 렌더, 저장 ──
+  const sidInput = document.getElementById('inp-start-sid');
+  if (sidInput && sidInput.value) autoFillSid();
+  recalcInqTime();
+  renderTable();
+  await saveStudents();
+  const stEl = document.getElementById('students-status');
+  if (stEl) stEl.textContent = `저장된 배정 데이터: ${students.length}명 (영어 K:${_engCounts.K} / S:${_engCounts.S})`;
+  toast(`🔀 편입 배정 완료 (${transferIdx.size}명) | 영어 K:${_engCounts.K} S:${_engCounts.S}`, 'ok');
 }
 
 // ═══════════════════════════════════════════════
