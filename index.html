@@ -1942,8 +1942,10 @@ function confirmExcelImport() {
   excelRawData.forEach((row, ri) => {
     const math   = getCell(row, colMap.math);
     const korean = getCell(row, colMap.korean);
-    // 수학 또는 국어 백분위가 없으면 스킵
-    if (math === '' && korean === '') { skipped++; return; }
+    const nameVal = String(getCell(row, colMap.name) || '').trim();
+    // 성적이 둘 다 없어도 이름이 있으면 미배정 학생으로 포함 (수동지정 대상)
+    // 이름까지 없는 완전 빈 행만 스킵
+    if (math === '' && korean === '' && !nameVal) { skipped++; return; }
 
     imported.push({
       num:      '',
