@@ -1213,8 +1213,12 @@ async function balanceHomerooms() {
 
   toAssign.forEach(({ s }) => {
     const calc = calcStudent(s);
-    if (!calc.hrCandidates.length) return;
-    const pick = pickHomeroom(calc.hrCandidates, counts, HOMEROOM_CAPS);
+    // 장학퀀텀은 점수 무관 A반 우선 → A를 후보 맨 앞에 삽입
+    const cands = isJanghak(s)
+      ? ['A', ...calc.hrCandidates.filter(c => c !== 'A')]
+      : calc.hrCandidates;
+    if (!cands.length) return;
+    const pick = pickHomeroom(cands, counts, HOMEROOM_CAPS);
     s.homeroom = pick;
     counts[pick] = (counts[pick] || 0) + 1;
   });
@@ -1297,8 +1301,11 @@ async function balanceTransfers() {
 
   toAssign.forEach(({ s }) => {
     const calc = calcStudent(s);
-    if (!calc.hrCandidates.length) return;
-    const pick = pickHomeroom(calc.hrCandidates, counts, HOMEROOM_CAPS);
+    const cands = isJanghak(s)
+      ? ['A', ...calc.hrCandidates.filter(c => c !== 'A')]
+      : calc.hrCandidates;
+    if (!cands.length) return;
+    const pick = pickHomeroom(cands, counts, HOMEROOM_CAPS);
     s.homeroom = pick;
     counts[pick] = (counts[pick] || 0) + 1;
   });
