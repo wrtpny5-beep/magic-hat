@@ -428,7 +428,7 @@ window.dispatchEvent(new Event('fbReady'));
               <th class="sticky" style="left:200px;min-width:50px;max-width:50px">생활반</th>
               <th class="sticky" style="left:250px;min-width:50px;max-width:50px">L&C</th>
               <th class="sticky" style="left:300px;min-width:80px;max-width:80px;border-right:2px solid var(--acc)">이름</th>
-              <th style="min-width:60px">장학</th>
+              <th style="min-width:80px">전형방법</th>
               <th>국어S과목</th><th>국어S그룹</th><th>국어S조합</th>
               <th>수학S과목</th><th>수학S그룹</th><th>수학S조합</th>
               <th>영어과목</th><th>영어그룹</th><th>영어조합</th>
@@ -640,7 +640,8 @@ function expandCandidates(hrCandidates) {
 // 장학 여부에 따라 A반 후보 필터링
 // 비장학생이 A/X 중복구간(82~100)이면 A 제외 → X로
 function getEffectiveCandidates(s, hrCandidates) {
-  if (!s.scholarship && hrCandidates.includes('A') && hrCandidates.includes('X')) {
+  const isJanghak = s.jeonhyeong && String(s.jeonhyeong).startsWith('장학퀀텀');
+  if (!isJanghak && hrCandidates.includes('A') && hrCandidates.includes('X')) {
     return hrCandidates.filter(c => c !== 'A');
   }
   return hrCandidates;
@@ -1500,7 +1501,7 @@ function renderTable() {
       <td class="sticky" style="left:200px;min-width:50px;max-width:50px">${s.group ? `<span style="font-family:var(--mono);font-weight:700;color:var(--grn)">${s.group}</span>` : '<span style="color:var(--t3)">-</span>'}</td>
       <td class="sticky" style="left:250px;min-width:50px;max-width:50px">${s.lnc ? `<span class="chip chip-${s.ks||'none'}" style="font-size:11px">${s.lnc}</span>` : '<span style="color:var(--t3)">-</span>'}</td>
       <td class="sticky" style="left:300px;min-width:80px;max-width:80px;border-right:2px solid var(--bd2)"><input class="editable name-in" style="width:74px" value="${s.name||''}" onchange="students[${i}].name=this.value"></td>
-      <td style="min-width:60px;text-align:center">${s.scholarship ? `<span style="font-size:11px;color:var(--yel);font-weight:700">${s.scholarship}</span>` : ''}</td>
+      <td style="min-width:60px;text-align:center">${s.jeonhyeong ? `<span style="font-size:10px;color:${s.jeonhyeong.startsWith('장학퀀텀')?'var(--yel)':'var(--t2)'}">${s.jeonhyeong}</span>` : ''}</td>
       <td style="font-size:11px">${s._kortype||s.kortype||'-'}</td>
       <td style="font-size:11px;font-family:var(--mono)">${s.korBr ? (s.korBr==='㉡(K)' ? 'K국어S' : s.ks+'국어S') : '-'}</td>
       <td style="font-size:11px;font-family:var(--mono);font-weight:700">${s.korBr==='㉡(K)' ? '㉡' : (s.korBr||'-')}</td>
@@ -1571,7 +1572,7 @@ function recalcAll() {
 }
 
 function downloadSampleExcel() {
-  const headers = ['수험번호','성명','구분','수학(선택)','백분위 수학','국어(선택)','백분위 국어','등급 영','탐구1','탐구2','논술','한국사','수학선택','국어선택','장학'];
+  const headers = ['수험번호','성명','구분','수학(선택)','백분위 수학','국어(선택)','백분위 국어','등급 영','탐구1','탐구2','논술','한국사','수학선택','국어선택','전형방법'];
   const sample = [
     ['12345678','홍길동','수능','미적분',85,'언어와매체',78,2,'사회문화','생활과윤리','논술','한국사','미적분','언어와매체'],
     ['87654321','김철수','9월 평가','확률과통계',72,'화법과작문',65,3,'생명과학Ⅰ','지구과학Ⅰ','논술 자습','한국사 자습','확률과통계','화법과작문'],
@@ -1586,7 +1587,7 @@ function downloadSampleExcel() {
 
 function exportCSV() {
   const rows = [[
-    '수험번호','수학담임반','학번','생활반','L&C','이름','장학',
+    '수험번호','수학담임반','학번','생활반','L&C','이름','전형방법',
     '국어S과목','국어S그룹','국어S조합',
     '수학S과목','수학S그룹','수학S조합',
     '영어과목','영어그룹','영어조합',
@@ -1607,7 +1608,7 @@ function exportCSV() {
     const korSGroup  = s.korBr==='㉡(K)' ? 'K국어S' : (s.ks||'')+'국어S';
     const korSComb   = s.korBr==='㉡(K)' ? '㉡' : (s.korBr||'');
     rows.push([
-      s.sid||'', s.homeroom||'', s.num||'', s.group||'', s.lnc||'', s.name, s.scholarship||'',
+      s.sid||'', s.homeroom||'', s.num||'', s.group||'', s.lnc||'', s.name, s.jeonhyeong||'',
       s._kortype||s.kortype||'', s.korBr?korSGroup:'', korSComb,
       s._mathtype||s.mathtype||'', s.mathBr?(s.ks+mathSLabel+'S'):'', s.mathBr||'',
       '영어', (s.engClass&&s.engClass!=='')?(s.engKS+'영어'):'', s.engClass||'',
@@ -1759,14 +1760,14 @@ const COL_HINTS = {
   kortype_new:  ['국어선택'],
   nonsul:       ['논술'],
   hankuksa:     ['한국사'],
-  scholarship:  ['장학'],
+  jeonhyeong:  ['전형방법','전형'],
 };
 
 const COL_LABELS = {
   sid: '수험번호', inq1: '탐구1', inq2: '탐구2', name: '이름', exam: '시험구분',
   mathtype_new: '수학선택(올해)', kortype_new: '국어선택(올해)', mathtype: '수학과목',
   math: '수학 백분위', korean: '국어 백분위', eng: '영어 등급', kortype: '국어 유형',
-  scholarship: '장학'
+  jeonhyeong: '전형방법'
 };
 
 function guessCol(headers, hints) {
@@ -1886,7 +1887,7 @@ function confirmExcelImport() {
       kortype:  normalizeKortype(getCell(row, colMap.kortype) || '언매'),
       nonsul:       String(getCell(row, colMap.nonsul)      || '').trim(),
       hankuksa:     String(getCell(row, colMap.hankuksa)    || '').trim(),
-      scholarship:  String(getCell(row, colMap.scholarship) || '').trim(),
+      jeonhyeong:   String(getCell(row, colMap.jeonhyeong) || '').trim(),
       inqTime:  null, // import 후 별도 계산
       ks: '', engKS: null
     });
