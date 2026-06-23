@@ -1940,12 +1940,14 @@ function confirmExcelImport() {
   let skipped = 0;
 
   excelRawData.forEach((row, ri) => {
-    const math   = getCell(row, colMap.math);
-    const korean = getCell(row, colMap.korean);
+    const mathRaw   = getCell(row, colMap.math);
+    const koreanRaw = getCell(row, colMap.korean);
+    const math   = (mathRaw   === '' || mathRaw   == null) ? '' : mathRaw;
+    const korean = (koreanRaw === '' || koreanRaw == null) ? '' : koreanRaw;
     const nameVal = String(getCell(row, colMap.name) || '').trim();
-    // 성적이 둘 다 없어도 이름이 있으면 미배정 학생으로 포함 (수동지정 대상)
-    // 이름까지 없는 완전 빈 행만 스킵
-    if (math === '' && korean === '' && !nameVal) { skipped++; return; }
+    console.log('[import]', ri, 'name=', JSON.stringify(nameVal), 'math=', JSON.stringify(math), 'korean=', JSON.stringify(korean), 'colMap.name=', colMap.name);
+    // 이름이 있으면 무조건 포함 (성적 없어도 미배정 학생으로). 이름 없는 완전 빈 행만 스킵.
+    if (!nameVal) { skipped++; console.log('  → SKIP (이름없음)'); return; }
 
     imported.push({
       num:      '',
